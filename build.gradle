@@ -1,0 +1,75 @@
+plugins {
+    id 'java'
+}
+
+group = 'de.scamupdates'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    // Paper-API 1.21.11 (liefert Adventure, MiniMessage, Gson, SnakeYAML zur Laufzeit mit)
+    compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+
+    testImplementation 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Entwicklung und Build mit JDK 25; Bytecode-Ziel Java 17, damit auch Paper 1.20-1.20.4 (Java 17)
+// sowie Paper 1.20.5-1.21.x (Java 21) und neuere Java-25-Server nicht durch zu hohen Bytecode ausgeschlossen werden.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// paper-api:1.21.11 traegt JVM-Metadaten 21; fuer Compile-Only und Tests auf JDK 25 erlauben,
+// waehrend der erzeugte Plugin-Bytecode auf Java 17 (release = 17) bleibt.
+configurations.configureEach {
+    if (name in ['compileClasspath', 'testCompileClasspath', 'testRuntimeClasspath']) {
+        attributes {
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+processResources {
+    def pluginVersion = project.version.toString()
+    inputs.property 'version', pluginVersion
+    filesMatching('plugin.yml') {
+        expand(version: pluginVersion)
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat = 'full'
+        showCauses = true
+        showStackTraces = false
+    }
+}
+
+jar {
+    archiveFileName = 'ScamUpdates.jar'
+    manifest { attributes 'Implementation-Title': 'ScamUpdates', 'Implementation-Version': project.version }
+}
+
+// Kopiert die fertige JAR nach dist/ScamUpdates.jar
+tasks.register('dist', Copy) {
+    dependsOn jar
+    from jar.archiveFile
+    into layout.projectDirectory.dir('dist')
+}
+tasks.named('build') { finalizedBy 'dist' }

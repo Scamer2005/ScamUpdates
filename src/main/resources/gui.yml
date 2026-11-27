@@ -1,0 +1,340 @@
+# ScamUpdates - Oberflaeche (MiniMessage). Material = Bukkit-Material-Name; texture = optionaler Head-Texturwert (Base64).
+config-version: 1
+
+general:
+  enabled: true
+  refresh-ticks: 10 # Aktualisierungsintervall offener Menues
+  animations: true
+  click-cooldown-ms: 150
+  input-method: anvil # anvil | chat
+  chat-input-timeout-seconds: 60
+
+sounds: # "sound.key;lautstaerke;tonhoehe", leer = kein Ton
+  open: "block.chest.open;0.5;1.3"
+  click: "ui.button.click;0.6;1.4"
+  error: "block.note_block.bass;1.0;0.6"
+  success: "entity.player.levelup;0.6;1.4"
+  code-wrong: "entity.villager.no;1.0;1.0"
+
+design:
+  border: ORANGE_STAINED_GLASS_PANE
+  filler: GRAY_STAINED_GLASS_PANE
+  progress-done: LIME_STAINED_GLASS_PANE
+  progress-todo: GRAY_STAINED_GLASS_PANE
+  progress-accent: YELLOW_STAINED_GLASS_PANE
+
+titles:
+  main: "<gradient:#ff9a3c:#ffd23c><bold>ScamUpdates</bold></gradient> <dark_gray>» <gray>Hauptmenue"
+  check: "<gold>Update-Check"
+  results: "<gold>Ergebnisse <dark_gray>(<page>/<pages>)"
+  history: "<gold>Update-Protokoll <dark_gray>(<page>/<pages>)"
+  yesno: "<gold>Bist du sicher?"
+
+text:
+  code:
+    input-name: "Code hier eintragen"
+    cancelled: "<red>Bestaetigung abgebrochen."
+  chat:
+    prompt: "<prefix><yellow><label> <gray>Schreibe die Eingabe in den Chat oder <white>abbrechen<gray>."
+    cancelled: "<prefix><gray>Eingabe abgebrochen."
+    invalid: "<prefix><red><error>"
+  check:
+    cooldown: "<red>Bitte warte noch <seconds>s."
+    started: "<green>Update-Pruefung gestartet."
+    cancel-requested: "<yellow>Abbruch angefordert."
+    cancel-question: "Die laufende Pruefung wirklich abbrechen?"
+    none: "<gray>Keine Daten."
+
+items:
+  # --- Statusanzeige (Platzhalter siehe jeweiliger Name/Lore) ---
+  status-minecraft:
+    material: GRASS_BLOCK
+    name: "<green><bold>Minecraft"
+    lore:
+      - "<gray>Version: <white><version>"
+      - "<gray>Kompatibilitaet: <white><status>"
+      - "<dark_gray><detail>"
+  status-paper:
+    material: PAPER
+    name: "<aqua><bold>Paper"
+    lore:
+      - "<gray>Build: <white><build>"
+      - "<gray>Neuester stabiler Build: <white><latest>"
+      - "<dark_gray><hint>"
+  status-plugins:
+    material: BOOKSHELF
+    name: "<gold><bold>Plugins"
+    lore:
+      - "<gray>Installiert: <white><count>"
+  status-updates:
+    material: EXPERIENCE_BOTTLE
+    name: "<yellow><bold>Updates"
+    lore:
+      - "<gray>Verfuegbar: <white><count>"
+      - "<gray>Zuordnung offen: <white><pending>"
+  status-crafty:
+    material: COMPARATOR
+    name: "<light_purple><bold>Serversteuerung"
+    lore:
+      - "<gray>Modus: <white><mode>"
+      - "<gray>Status: <white><state>"
+      - "<dark_gray><detail>"
+      - "<yellow>Klick: Verbindung pruefen"
+  status-state:
+    material: BEACON
+    name: "<white><bold>ScamUpdates"
+    lore:
+      - "<gray>Status: <white><state>"
+      - "<dark_gray><detail>"
+
+  # --- Hauptmenue-Eintraege ---
+  menu-check:
+    material: SPYGLASS
+    name: "<aqua><bold>Update-Check"
+    lore:
+      - "<gray>Sucht nach Paper- und Plugin-Updates."
+      - "<gray>Die Pruefung laeuft im Hintergrund weiter,"
+      - "<gray>auch wenn du das Menue schliesst."
+      - ""
+      - "<yellow>Klick: oeffnen"
+  menu-history:
+    material: WRITTEN_BOOK
+    name: "<gold><bold>Update-Protokoll"
+    lore:
+      - "<gray>Alle Updates, Rollbacks und Neustarts"
+      - "<gray>mit Ergebnis und Fehlerdetails."
+      - ""
+      - "<yellow>Klick: oeffnen"
+
+  # --- Navigation ---
+  nav-back:
+    material: ARROW
+    name: "<yellow>Zurueck"
+    lore: ["<gray>Zum vorherigen Menue."]
+  nav-close:
+    material: BARRIER
+    name: "<red>Schliessen"
+    lore: ["<gray>Menue schliessen."]
+  nav-prev:
+    material: SPECTRAL_ARROW
+    name: "<yellow>Vorherige Seite"
+    lore: ["<gray>Seite <page> von <pages>"]
+  nav-next:
+    material: SPECTRAL_ARROW
+    name: "<yellow>Naechste Seite"
+    lore: ["<gray>Seite <page> von <pages>"]
+  nav-info:
+    material: OAK_SIGN
+    name: "<white>Seite <page>/<pages>"
+    lore: ["<gray><count> Eintraege"]
+  nav-cancel:
+    material: BARRIER
+    name: "<red><bold>Abbrechen"
+    lore:
+      - "<gray>Bricht den laufenden Vorgang ab."
+      - "<yellow>Klick: mit Ja/Nein bestaetigen"
+  "yes":
+    material: LIME_CONCRETE
+    name: "<green><bold>Ja"
+    lore: ["<gray>Ausfuehren."]
+  "no":
+    material: RED_CONCRETE
+    name: "<red><bold>Nein"
+    lore: ["<gray>Zurueck, nichts aendern."]
+  yesno-question:
+    material: PAPER
+    name: "<yellow><question>"
+    lore: []
+
+  # --- Update-Check ---
+  check-quick:
+    material: CLOCK
+    name: "<green><bold>Schnellpruefung"
+    lore:
+      - "<gray>Paper-Version, installierte Plugins,"
+      - "<gray>verfuegbare Updates und Probleme."
+      - ""
+      - "<yellow>Klick: starten"
+  check-detailed:
+    material: COMPASS
+    name: "<aqua><bold>Detaillierte Pruefung"
+    lore:
+      - "<gray>Zusaetzlich: Update-Quellen, Versionen,"
+      - "<gray>Kompatibilitaet, mehrdeutige Treffer"
+      - "<gray>und Fehlerursachen."
+      - ""
+      - "<yellow>Klick: starten"
+  check-progress:
+    material: CLOCK
+    name: "<yellow><bold>Pruefung laeuft <white><percent>%"
+    lore:
+      - "<gray>Plugin <white><done><gray>/<white><total>"
+      - "<gray>Aktuell: <white><current>"
+      - "<gray>Dauer: <white><elapsed>"
+      - "<dark_gray>Vorgang <id> - laeuft auch ohne offenes Menue"
+  check-progress-paper:
+    material: PAPER
+    name: "<aqua>Paper wird geprueft ..."
+    lore: ["<gray>Vergleich mit dem PaperMC-Downloaddienst."]
+  sum-updates:
+    material: LIME_DYE
+    name: "<green><bold><count> Update(s) verfuegbar"
+    lore: ["<gray>Klick: nur Updates anzeigen"]
+  sum-current:
+    material: LIGHT_BLUE_DYE
+    name: "<aqua><count> aktuell"
+    lore: ["<gray>Kein Update noetig."]
+  sum-open:
+    material: YELLOW_DYE
+    name: "<yellow><count> Zuordnung offen"
+    lore: ["<gray>Mehrere moegliche Treffer."]
+  sum-problems:
+    material: RED_DYE
+    name: "<red><count> Problem(e)"
+    lore: ["<gray>Keine Quelle, Fehler oder inkompatibel."]
+  sum-excluded:
+    material: GRAY_DYE
+    name: "<gray><count> ausgeschlossen / vorgemerkt"
+    lore: ["<gray>Vom Admin ausgeschlossen oder wartet auf Neustart."]
+  sum-paper:
+    material: PAPER
+    name: "<aqua><bold>Paper <white><mc>"
+    lore:
+      - "<gray>Build: <white><build> <gray>-> neuester stabiler: <white><latest>"
+      - "<white><hint>"
+  sum-show-all:
+    material: BOOK
+    name: "<white><bold>Alle Ergebnisse"
+    lore: ["<gray>Klick: Liste oeffnen"]
+  sum-rerun:
+    material: REPEATER
+    name: "<yellow><bold>Erneut pruefen"
+    lore:
+      - "<gray>Linksklick: Schnellpruefung"
+      - "<gray>Rechtsklick: Detaillierte Pruefung"
+
+  # --- Ergebnisliste ---
+  results-update:
+    material: LIME_DYE
+    name: "<green><plugin>"
+    lore:
+      - "<gray>Installiert: <white><version>"
+      - "<gray>Neueste: <green><target>"
+      - "<gray>Quelle: <white><source> <dark_gray>(<channel>)"
+      - "<white><info>"
+  results-current:
+    material: LIGHT_BLUE_DYE
+    name: "<aqua><plugin>"
+    lore:
+      - "<gray>Installiert: <white><version>"
+      - "<gray>Quelle: <white><source>"
+      - "<white><info>"
+  results-open:
+    material: YELLOW_DYE
+    name: "<yellow><plugin>"
+    lore:
+      - "<gray>Installiert: <white><version>"
+      - "<white><info>"
+  results-problem:
+    material: RED_DYE
+    name: "<red><plugin>"
+    lore:
+      - "<gray>Installiert: <white><version>"
+      - "<white><info>"
+  results-excluded:
+    material: GRAY_DYE
+    name: "<gray><plugin>"
+    lore:
+      - "<gray>Installiert: <white><version>"
+      - "<white><info>"
+  results-filter:
+    material: HOPPER
+    name: "<yellow>Filter: <white><filter>"
+    lore: ["<gray>Klick: Filter wechseln"]
+  results-detail:
+    material: LANTERN
+    name: "<yellow>Ansicht: <white><mode>"
+    lore: ["<gray>Klick: Detailgrad wechseln"]
+  results-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Keine Eintraege"
+    lore: ["<gray>Fuer diesen Filter gibt es nichts anzuzeigen."]
+
+  # --- Protokoll ---
+  history-ok:
+    material: LIME_DYE
+    name: "<green><action>"
+    lore:
+      - "<gray><time> <dark_gray>- <white><actor>"
+      - "<white><message>"
+      - "<gray>Minecraft-Ziel: <white><mc>"
+      - "<gray><details>"
+  history-warn:
+    material: YELLOW_DYE
+    name: "<yellow><action>"
+    lore:
+      - "<gray><time> <dark_gray>- <white><actor>"
+      - "<white><message>"
+      - "<gray>Minecraft-Ziel: <white><mc>"
+      - "<gray><details>"
+  history-failed:
+    material: RED_DYE
+    name: "<red><action>"
+    lore:
+      - "<gray><time> <dark_gray>- <white><actor>"
+      - "<white><message>"
+      - "<gray>Minecraft-Ziel: <white><mc>"
+      - "<gray><details>"
+  history-info:
+    material: LIGHT_BLUE_DYE
+    name: "<aqua><action>"
+    lore:
+      - "<gray><time> <dark_gray>- <white><actor>"
+      - "<white><message>"
+      - "<gray>Minecraft-Ziel: <white><mc>"
+      - "<gray><details>"
+  history-sort:
+    material: COMPARATOR
+    name: "<yellow>Sortierung: <white><sort>"
+    lore: ["<gray>Klick: Sortierung wechseln"]
+  history-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Das Protokoll ist leer"
+    lore: ["<gray>Eintraege erscheinen nach Updates, Rollbacks und Neustarts."]
+
+  # --- Code-Bestaetigung (Amboss) ---
+  code-paper:
+    material: PAPER
+    name: "<yellow>Code hier eintragen"
+    lore:
+      - "<white><question>"
+      - ""
+      - "<gray>Dein Code: <green><bold><code>"
+      - "<gray>Tippe den Code ins Textfeld und"
+      - "<gray>klicke dann auf dieses Papier."
+  text-paper:
+    material: PAPER
+    name: "<yellow><initial>"
+    lore:
+      - "<gray>Bearbeite den Text oben und klicke dann"
+      - "<gray>auf dieses Papier, um zu bestaetigen."
+      - "<dark_gray>Schliessen = abbrechen"
+
+design-labels:
+  filter-all: "Alle"
+  filter-updates: "Nur Updates"
+  filter-problems: "Probleme"
+  mode-quick: "Kompakt"
+  mode-detailed: "Detailliert"
+  sort-newest: "Neueste zuerst"
+  sort-oldest: "Aelteste zuerst"
+  sort-problems: "Probleme zuerst"
+  crafty-mode-crafty: "Crafty Controller"
+  crafty-mode-local: "Lokal (/restart)"
+  control-ready: "bereit"
+  control-not-ready: "nicht bereit"
+  compat-tested: "getestet"
+  compat-untested: "ungetestet"
+  compat-too-old: "zu alt (nicht unterstuetzt)"
+  compat-unsupported-newer: "zu neu (nicht unterstuetzt)"
+  compat-unknown: "unbekannt"

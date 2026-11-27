@@ -1,0 +1,81 @@
+name: ScamUpdates
+version: '${version}'
+main: de.scamupdates.ScamUpdates
+api-version: '1.20'
+description: Zentraler Plugin-Updater mit Backup, Rollback und Crafty-Controller-Neustart.
+authors: [ScamUpdates]
+
+commands:
+  scamupdates:
+    description: ScamUpdates - Plugin-Updates verwalten
+    usage: /scamupdates help
+    aliases: [scamu]
+  update:
+    description: Alias fuer /scamupdates (oeffnet das Menue)
+    usage: /update
+
+permissions:
+  scamupdates.admin:
+    description: Alle ScamUpdates-Berechtigungen
+    default: op
+    children:
+      scamupdates.check: true
+      scamupdates.download: true
+      scamupdates.restore: true
+      scamupdates.backup: true
+      scamupdates.backup.delete: true
+      scamupdates.restart: true
+      scamupdates.config: true
+      scamupdates.sources: true
+      scamupdates.notify: true
+      scamupdates.update.plugins: true
+      scamupdates.update.server: true
+      scamupdates.update.single: true
+      scamupdates.queue: true
+      scamupdates.schedule: true
+      scamupdates.history: true
+  scamupdates.check:
+    description: Updates suchen, Status und Listen ansehen
+    default: false
+  scamupdates.download:
+    description: Updates herunterladen und zur Installation vormerken
+    default: false
+  scamupdates.restore:
+    description: Backups wiederherstellen (Rollback)
+    default: false
+  scamupdates.backup:
+    description: Backups auflisten
+    default: false
+  scamupdates.backup.delete:
+    description: Backups loeschen
+    default: false
+  scamupdates.restart:
+    description: Neustart ueber Crafty Controller ausloesen
+    default: false
+  scamupdates.config:
+    description: Config neu laden
+    default: false
+  scamupdates.sources:
+    description: Quellen, Zuordnungen und Ausschluesse verwalten
+    default: false
+  scamupdates.notify:
+    description: Update- und Fehlerbenachrichtigungen beim Betreten erhalten
+    default: false
+  scamupdates.update.plugins:
+    description: Alle Plugins aktualisieren
+    default: false
+  scamupdates.update.server:
+    description: Gesamten Server aktualisieren (Paper + Plugins)
+    default: false
+  scamupdates.update.single:
+    description: Einzelne Plugins aktualisieren
+    default: false
+  scamupdates.queue:
+    description: Update-Warteschlange verwalten
+    default: false
+  scamupdates.schedule:
+    description: Neustarts planen
+    default: false
+  scamupdates.history:
+    description: Update-Protokoll ansehen
+    default: false

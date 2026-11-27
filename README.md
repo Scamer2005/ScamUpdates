@@ -3,43 +3,53 @@
 Update-Manager für Paper **1.20 bis 1.21.x**: erkennt installierte Plugins, sucht Updates (Modrinth, Hangar, SpigotMC/Spiget, GitHub Releases, Jenkins, direkte Links), lädt sie geprüft nach `plugins/update/`, sichert die alte JAR in `plugins/update-backup/`, bietet Rollback, ein Menü (GUI) und löst Neustarts über **Crafty Controller** oder lokal per `/restart` aus.
 
 > ## Status (bitte lesen)
-> Die **Basis** (Update-Suche, Download, Backup, Rollback, Crafty, Befehle) wurde vom Betreiber gebaut und getestet. Alles in der Tabelle „Neu in diesem Stand“ wurde **ohne Compiler geschrieben und weder gebaut noch ausgeführt**. Rechne mit einzelnen Compilerfehlern, fehlschlagenden Tests und Optikproblemen im Menü; Fehlermeldungen bitte zurückschicken. Geprüft wurde nur per Skript: Klammerbalance, Paketnamen, YAML-Syntax, dass jeder im Code genutzte Nachrichten-/GUI-Schlüssel existiert, und dass keine YAML-Schlüssel als Boolean gelesen werden.
+> In Schritt 1 wurden Build-System (Gradle-Wrapper 9.2.0, JDK 25, Java-17-Bytecode) und Basis-Tests verifiziert. In Schritt 2 wurden die **Crafty-Isolation** (Crafty komplett optional und fehlerisoliert), die saubere Trennung des **Offline-Betriebs** (`ACTIVE_OFFLINE`) sowie die strukturellen Grundlagen fuer Warteschlange, Einzel-Updates und Neustart-Planung umgesetzt und per JUnit 5 getestet. Auf einem echten Paper-Server (`1.20`–`1.21.x`) noch **nicht** getestet sind: Live-GUI-Rendering, Amboss-Bestätigung, echter `/restart` und Live-Paper-Updates.
 
 ## Neu in diesem Stand
 
 | Bereich | Stand |
 |---|---|
-| Versionsbereich 1.20–1.21.x mit Kompatibilitätsstatus (`getestet`/`ungetestet`/`zu alt`/`zu neu`) | geschrieben, ungetestet |
-| Crafty **optional** (`crafty.enabled: false` → lokaler `/restart`, kein Fehlerzustand) | geschrieben, ungetestet |
-| Kompakte `config.yml`, `gui.yml`, Migration (inkl. Kommentar-Aktualisierung) | geschrieben, ungetestet |
-| Vorgangsverwaltung (IDs, Status, Doppelstart-Schutz, neustartsicher) | geschrieben, ungetestet |
-| Update-Protokoll (`history.jsonl`, Aufbewahrung, Token-Schwärzung) | geschrieben, ungetestet |
-| Paper-Prüfung über den PaperMC-Downloaddienst (Fill v3) für Status und Update-Check | geschrieben, ungetestet |
-| GUI-Grundsystem, Hauptmenü mit Statusanzeige, Update-Check-Menü (Fortschritt, Animation, Abbrechen, Zusammenfassung), Ergebnisliste, Protokoll-Menü | geschrieben, ungetestet |
-| Einmalcode per Amboss-Fenster (Chat-Fallback) für alle Bestätigungen | geschrieben, ungetestet |
-| `/update` = `/scamupdates`, neue Permissions, `history` | geschrieben, ungetestet |
+| Versionsbereich 1.20–1.21.x mit Kompatibilitätsstatus (`getestet`/`ungetestet`/`zu alt`/`zu neu`) | gebaut & per JUnit 5 geprüft (ohne Live-Server) |
+| Crafty **optional & isoliert** (`crafty.enabled: false` → lokal `/restart`; Crafty-Fehler deaktivieren nur Crafty, nie das Hauptplugin) | umgesetzt & per JUnit 5 (Mock-Server) getestet |
+| **Offline-Betrieb (`ACTIVE_OFFLINE`)**: lokale Befehle/Backups/Restore/Neustart bleiben nutzbar; Online-Funktionen erholen sich automatisch | umgesetzt & per JUnit 5 getestet |
+| Grundlagen für Schritt 3 (`UpdateQueueStore` / `queue.yml`, `RestartScheduleStore` / `restarts.yml`, Einzel-Download- & Readiness-Basis) | strukturell vorbereitet & per JUnit 5 getestet |
+| Kompakte `config.yml`, `gui.yml`, Migration (inkl. Kommentar-Aktualisierung) | gebaut & per JUnit 5 getestet |
+| Vorgangsverwaltung (IDs, Status, Doppelstart-Schutz, neustartsicher) | gebaut & per JUnit 5 getestet |
+| Update-Protokoll (`history.jsonl`, Aufbewahrung, Token-Schwärzung) | gebaut & per JUnit 5 getestet |
+| Paper-Prüfung über den PaperMC-Downloaddienst (Fill v3) für Status und Update-Check | gebaut & Parsing per JUnit 5 getestet |
+| GUI-Grundsystem, Hauptmenü mit Statusanzeige, Update-Check-Menü, Ergebnisliste, Protokoll-Menü | kompiliert; Live-Optik auf Paper-Server ungetestet |
+| Einmalcode per Amboss-Fenster (Chat-Fallback) für alle Bestätigungen | Logik per JUnit 5 getestet; Amboss-UI ungetestet |
+| `/update` = `/scamupdates`, neue Permissions, `history` | kompiliert; Ingame-Verhalten ungetestet |
 
-**Noch nicht umgesetzt** (kommen in den nächsten Abschnitten, dafür gibt es bewusst weder Menüeinträge noch Befehle): Gesamtes Serverupdate (Paper + Plugins) samt Austausch-Helfer, „Alle Plugins updaten“-Ablauf im Menü, Plugin-Bibliothek („Einzelne Plugins“), Update-Warteschlange (Erinnerungen), geplante und einmalige Neustarts, Backup-Menü, Einstellungsmenü. Diese Funktionen sind über die bestehenden Befehle (`download`, `restore`, `backup`, `restart`, …) weiter erreichbar.
+**Noch nicht umgesetzt** (folgt erst nach Freigabe von Schritt 3): Vollständige Update-Warteschlange mit GUI/Befehlen, Einzelplugin-Verwaltung mit GUI, Zeitplan-/Neustart-GUIs, gesamtes Serverupdate (Paper + Plugins) samt Paper-JAR-Austausch, Backup-GUI und Einstellungsmenü. Diese Funktionen bleiben über die bestehenden Befehle (`download`, `restore`, `backup`, `restart`, …) nutzbar.
 
 ## Bauen
 
-Gradle-Projekt in IntelliJ öffnen, JDK 21 oder neuer, Task `build` → `build/libs/ScamUpdates.jar` (Kopie in `dist/`). Bytecode-Ziel Java 21; Abhängigkeit nur `paper-api:1.21.11-R0.1-SNAPSHOT` (`compileOnly`). `gradlew` fehlt (kein Binärfile): `gradle wrapper` erzeugt es.
+Build über den mitgelieferten Gradle-Wrapper (`./gradlew clean test build` unter Linux/macOS bzw. `gradlew.bat clean test build` unter Windows) mit **JDK 25**. Ergebnis: `build/libs/ScamUpdates.jar` (Kopie in `dist/ScamUpdates.jar`). Bytecode-Ziel ist **Java 17** (`options.release = 17`), Abhängigkeit `paper-api:1.21.11-R0.1-SNAPSHOT` (`compileOnly`).
 
 ## Version, Java, Linux
 
 * **Unterstützt:** Minecraft 1.20 bis 1.21.x. Neuere Versionen (1.22, 26.x) und ältere als 1.20 führen **nicht** zum Absturz; ScamUpdates läuft weiter, zeigt aber den Status „nicht unterstützt“ (Log, `/scamupdates status`, Menü).
-* **„Getestet“** wird nur angezeigt, wenn du die Version unter `compat.tested-versions` einträgst. Der Code behauptet von sich aus keine getestete Unterstützung. Verifiziert ist bisher nur der Build gegen die API 1.21.11 und der Betrieb auf deinem Server.
+* **„Getestet“** wird nur angezeigt, wenn du die Version unter `compat.tested-versions` einträgst. Der Code behauptet von sich aus keine getestete Unterstützung.
 * **Versionsabhängiges** ist isoliert: Plugin-Metadaten (`PluginMeta` oder `PluginDescriptionFile`, nur eine Variante wird geladen), Item-Flags (per `valueOf`), Amboss-Text (Reflection auf `AnvilView`/`AnvilInventory`). Gemeinsamer Code greift nie auf `InventoryView` zu (Klasse/Interface-Wechsel in 1.21), sondern vergleicht nur Inventar-Instanzen. `plugin.yml` deklariert `api-version: '1.20'`.
-* Zielserver mit Java 25: der Bytecode (Java 21) läuft darauf; ob sehr alte Paper-Builds (1.20.x) unter Java 25 starten, ist **nicht geprüft**.
+* **Java-Kompatibilität:** Gebaut wird mit **JDK 25**, der erzeugte Bytecode hat jedoch **Java-17-Ziel** (`class file major version 61`), sodass Paper 1.20–1.20.4 (Java 17), Paper 1.20.5–1.21.x (Java 21) und Java-25-Server gleichermaßen unterstützt werden. Ein Praxistest sehr alter Paper-1.20-Builds unter Java 25 steht noch aus.
 * Linux: nichts Besonderes nötig. Für den lokalen Neustart muss das `restart-script` aus der `spigot.yml` existieren.
 
 ## Crafty Controller optional
 
-* `crafty.enabled: true` (Standard): alle Crafty-Angaben müssen eingetragen sein, sonst Fehlerzustand `DISABLED_MISSING_CONFIG`. Verbindung und Token werden beim Start geprüft; Neustarts laufen über die Crafty-API. Einrichtung: [`docs/CRAFTY.md`](docs/CRAFTY.md).
-* `crafty.enabled: false`: **kein** Fehlerzustand, keine Crafty-Verbindung, alle anderen Funktionen bleiben verfügbar. Neustarts (nach Updates und manuell) laufen über den Minecraft-Befehl `/restart` (`local-restart.command`).
-* **Wichtig zu `/restart`:** Der Befehl startet nur neu, wenn in der `spigot.yml` unter `settings.restart-script` ein **vorhandenes Skript** steht; sonst fährt er den Server nur herunter. ScamUpdates prüft das beim Start und vor jedem Neustart. Fehlt der Mechanismus: Fehlermeldung in Konsole und an Admins (`scamupdates.notify`), und Updates gelten dann nur als **vorbereitet** (Warnung nach dem Download, Protokolleintrag `WARN`). Ein Neustart wird nie vorgetäuscht.
-* `/restart` lädt die Paper-JAR beim neuen Start nur neu, ersetzt sie aber nicht. Für Paper-Versionswechsel braucht es einen Austausch-Mechanismus (Teil des noch offenen Serverupdate-Abschnitts).
-* Internetprüfung und alle Sicherheitsprüfungen sind unabhängig von Crafty.
+* `crafty.enabled: false`: **kein** Fehlerzustand, **keine** Crafty-Verbindung, **keine** API-Anfragen oder Authentifizierungsversuche und **keine** Crafty-Fehlermeldungen. Alle übrigen Plugin-Funktionen bleiben verfügbar; Neustarts (nach Updates und manuell) laufen über den lokalen Minecraft-Befehl `/restart` (`local-restart.command`), sofern korrekt eingerichtet.
+* `crafty.enabled: true` (Standard): Verbindung, Server-ID und Token werden beim Start asynchron geprüft; Neustarts laufen über die Crafty-API. Einrichtung: [`docs/CRAFTY.md`](docs/CRAFTY.md).
+* **Fehlerhafte Crafty-Konfiguration / Ausfall:** Sind URL, API-Token, Server-ID, Timeout, SSL oder Authentifizierung (`401`/`403`) fehlerhaft oder ist Crafty nicht erreichbar, wird **ausschließlich die Crafty-Integration deaktiviert**. Das Hauptplugin bleibt aktiv (`ACTIVE` bzw. `ACTIVE_OFFLINE`), alle lokalen und Online-Updatefunktionen bleiben nutzbar, und Admins (`scamupdates.notify`) erhalten eine klare Statusmeldung ohne Offenlegung von Zugangsdaten.
+* **Wichtig zu `/restart`:** Der lokale Befehl startet nur neu, wenn in der `spigot.yml` unter `settings.restart-script` ein **vorhandenes Skript** steht; sonst fährt er den Server nur herunter. ScamUpdates prüft das beim Start und vor jedem Neustart. Fehlt der Mechanismus: Fehlermeldung in Konsole und an Admins (`scamupdates.notify`), und Updates gelten dann nur als **vorbereitet** (Warnung nach dem Download, Protokolleintrag `WARN`). Ein Neustart wird nie vorgetäuscht.
+* `/restart` lädt die Paper-JAR beim neuen Start nur neu, ersetzt sie aber nicht. Für Paper-Versionswechsel braucht es einen Austausch-Mechanismus (Teil des späteren Serverupdate-Abschnitts).
+* Internetprüfung und alle Sicherheitsprüfungen sind vollständig unabhängig von Crafty.
+
+## Offline-Betrieb (`ACTIVE_OFFLINE`)
+
+* Fehlende Internetverbindung beim Start oder während des Betriebs deaktiviert ScamUpdates **nicht** pauschal, sondern versetzt es in den Zustand `ACTIVE_OFFLINE`.
+* **Offline weiter nutzbar:** `status`, `list` (letzter bekannter Snapshot), `history`, `backup list`, `backup delete` (mit Einmalcode), `restore` (mit Einmalcode), `restart` (lokal oder über lokales Crafty-Ziel), `config reload`, `sources`, `exclude`, `include`, `match`, `pick`, `confirm`/`cancel`/`later` sowie Hauptmenü und Protokoll-GUI.
+* **Offline eingeschränkt:** ausschließlich internetabhängige Funktionen (`check`, `download`, Abfrage externer Updatequellen, Online-Prüfung von Paper-Builds).
+* **Automatische Erholung:** Ein temporärer Verbindungsausfall beschädigt den Plugin-Zustand nicht dauerhaft. Sobald beim periodischen Takt, beim manuellen `check`/`download` oder bei `/scamupdates config reload` wieder Internet erreichbar ist, wechselt ScamUpdates selbstständig zurück nach `ACTIVE`.
 
 ## Menü (GUI)
 
@@ -121,8 +131,8 @@ Zuordnung: manuelle Config, gespeicherte Zuordnung/Ausschluss, Links in Website/
 
 ## Dateien in `plugins/ScamUpdates/`
 
-`config.yml`, `gui.yml`, `matches.yml`, `transactions.yml`, `operations.yml`, `history.jsonl`, `notified.yml`, `logs/scamupdates.log`, `tmp/` (wird beim Start geleert).
+`config.yml`, `gui.yml`, `matches.yml`, `transactions.yml`, `operations.yml`, `queue.yml`, `restarts.yml`, `history.jsonl`, `notified.yml`, `logs/scamupdates.log`, `tmp/` (wird beim Start geleert).
 
 ## Tests
 
-JUnit 5 (`gradle test`): Versionsvergleich und Minecraft-Matching, JAR-Validierung, Download-Pipeline (manipulierte/falsche JARs lassen installierte JAR und Backup unberührt), Backup/Staging, Rollback, Bestätigungen (Spielerbindung, Ablauf, Einmaligkeit, Codelänge), Permissions, Internetprüfung, Crafty (Mock-Server), Config-Migration, Plugin-Index, Zuordnung, Neustart-Vorprüfung, Kompatibilitätsstatus, Protokoll, Vorgangsverwaltung, Paper-API-Parsing, lokaler Neustart, GUI-/Config-Ressourcen. **Noch nicht gelaufen** (siehe Status). Nicht testbar ohne Server: Menü-Rendering, Amboss-Fenster, Optik.
+JUnit 5 (`./gradlew test`): Versionsvergleich und Minecraft-Matching, JAR-Validierung, Download-Pipeline (manipulierte/falsche JARs lassen installierte JAR und Backup unberührt), Backup/Staging, Rollback (auch im Offline-Betrieb), Bestätigungen (Spielerbindung, Ablauf, Einmaligkeit, Codelänge), Permissions und Online-/Offline-Befehlstrennung (`CommandPolicy`), Internetprüfung und Offline-Wiederherstellung (`ConnectivityGuard`), Crafty (Mock-Server) & Crafty-Isolation (`CraftyCoordinator`), Config-Migration, Plugin-Index, Zuordnung, Neustart-Vorprüfung, Warteschlangen- und Neustartzeitplan-Speicher (`UpdateQueueStore`, `RestartScheduleStore`), Kompatibilitätsstatus, Protokoll, Vorgangsverwaltung, Paper-API-Parsing, lokaler Neustart, GUI-/Config-Ressourcen. Nicht testbar ohne echten Paper-Server: Menü-Rendering, Amboss-Fenster, Optik und Live-Neustart.

@@ -1,0 +1,370 @@
+# ScamUpdates - Konfiguration (Nachrichten: MiniMessage). Details: README.md und docs/.
+# Fehlende Schluessel werden bei Updates ergaenzt; vorher entsteht config.yml.bak-v<alte Version>.
+config-version: 2
+
+# Vom Betreiber getestete Minecraft-Versionen, z. B. ["1.21.11"]. Nur diese gelten als "getestet".
+compat:
+  tested-versions: []
+
+# Update-Protokoll (history.jsonl). Tokens werden nie gespeichert.
+history:
+  enabled: true
+  retention-days: 90 # 0 = nie loeschen
+  max-entries: 5000
+
+general:
+  debug: false
+
+# Crafty fuer die Serversteuerung verwenden. Bei false wird der lokale Neustart (/restart) genutzt.
+# Einrichtung: docs/CRAFTY.md
+crafty:
+  enabled: true
+  connection:
+    base-url: "https://crafty.example.com"
+    api-base-path: "/api/v2"
+    api-token: "HIER_API_TOKEN_EINTRAGEN"
+    server-id: "HIER_SERVER_ID_EINTRAGEN"
+    timeout: 10000 # Millisekunden
+    verify-ssl: true # false nur in vertrauenswuerdigen Netzen
+    ca-certificate-file: "" # PEM-Datei fuer selbst signierte Zertifikate
+    allow-http: false
+  restart:
+    enabled: true
+    require-pending-updates: false # true = Neustart nur mit vorgemerkten Updates
+
+# Lokaler Neustart bei crafty.enabled: false. Benoetigt ein vorhandenes restart-script in der spigot.yml.
+local-restart:
+  command: "restart"
+
+startup:
+  allow-reload-recovery: true # "config reload" darf den Fehlerzustand beheben
+  internet-check:
+    targets:
+      - "https://www.cloudflare.com/cdn-cgi/trace"
+      - "https://api.github.com"
+      - "https://api.modrinth.com"
+      - "https://hangar.papermc.io"
+    timeout: 5000 # Millisekunden pro Ziel
+
+behavior:
+  check-on-start: true
+  check-interval-minutes: 360 # 0 = aus
+  allow-multiple-checks: false
+  check-cooldown-seconds: 60
+  default-channel: stable # stable | beta | development
+  require-minecraft-match: true
+  treat-unknown-version-order-as-update: false
+  page-size: 8
+
+notifications:
+  enabled: true
+  join-delay-ticks: 40
+  mode: once-per-update-set # oder once-ever-until-reset
+  renotify-after-minutes: 0 # 0 = nie
+  include-pending-matches: true
+  title:
+    enabled: false
+    title: "<gold>ScamUpdates"
+    subtitle: "<yellow><count> Update(s) verfuegbar"
+
+# Sicherheitsabfragen. enabled: false schaltet alle ab (nicht empfohlen).
+confirmations:
+  enabled: true
+  timeout-seconds: 30
+  max-pending-per-player: 5
+  method: anvil # anvil = Code im Amboss-Fenster, chat = klickbarer Token
+  code-length: 6
+  max-attempts: 3
+  actions:
+    check: true # veraltet, wird ignoriert (Update-Check braucht keinen Code)
+    download: true
+    restore: true
+    backup-delete: true
+    restart: true # nur fuer /scamupdates restart; Neustart-Planung braucht keinen Code
+    exclude: true
+    include: true
+
+downloads:
+  max-size-mb: 128
+  timeout-seconds: 120
+  max-parallel: 2
+  allow-http: false
+  require-checksum: false
+  all-or-nothing: false # true = bei einem Fehler wird nichts vorgemerkt
+
+http:
+  user-agent: "" # leer = ScamUpdates/<Version>
+  timeout-seconds: 15
+  retries: 2
+  request-delay-ms: 150
+
+matching:
+  auto-assign-single-match: true # mehrere Treffer werden nie automatisch gewaehlt
+  retry-unmatched-hours: 24
+
+sources:
+  modrinth:
+    enabled: true
+  hangar:
+    enabled: true
+  spigot:
+    enabled: true # ueber Spiget
+  github:
+    enabled: true
+    token: "" # optional, hebt das Rate-Limit an
+  jenkins:
+    enabled: true
+  direct:
+    enabled: true
+
+# Manuelle Zuordnung (ersetzt die Suche), siehe README. Beispiel:
+# plugins:
+#   MeinPlugin: {source: modrinth, project-id: "slug", channel: stable}
+plugins: {}
+
+sounds:
+  # Format "sound.key;lautstaerke;tonhoehe", leer = kein Ton.
+  notify: "entity.experience_orb.pickup;1.0;1.0"
+  success: "entity.player.levelup;0.7;1.2"
+  error: "block.note_block.bass;1.0;0.6"
+  confirm: "block.note_block.pling;1.0;1.4"
+
+buttons:
+  show-updates:
+    text: "<aqua>[Updates anzeigen]</aqua>"
+    hover: "<gray>Zeigt alle verfuegbaren Updates"
+  update-now:
+    text: "<green>[Jetzt aktualisieren]</green>"
+    hover: "<gray>Startet den Update-Vorgang (mit Bestaetigung)"
+  later:
+    text: "<gray>[Spaeter]</gray>"
+    hover: "<gray>Erinnere mich spaeter"
+  confirm:
+    text: "<green><bold>[Bestaetigen]</bold></green>"
+    hover: "<gray>Aktion jetzt ausfuehren"
+  cancel:
+    text: "<red>[Abbrechen]</red>"
+    hover: "<gray>Aktion abbrechen"
+  restart-now:
+    text: "<gold>[Jetzt neu starten]</gold>"
+    hover: "<gray>Neustart ueber Crafty Controller (mit Bestaetigung)"
+  select:
+    text: "<yellow>[Auswaehlen]</yellow>"
+    hover: "<gray>Treffer fuer dieses Plugin anzeigen"
+  pick-none:
+    text: "<red>[Keins davon]</red>"
+    hover: "<gray>Kein Treffer passt: Plugin wird nicht automatisch aktualisiert"
+  prev:
+    text: "<yellow>[«]</yellow>"
+    hover: "<gray>Vorherige Seite"
+  next:
+    text: "<yellow>[»]</yellow>"
+    hover: "<gray>Naechste Seite"
+
+# Nachrichten (MiniMessage). Listen sind mehrzeilig; <prefix> und Platzhalter sind je Nachricht gesetzt.
+messages:
+  prefix: "<dark_gray>[<gold>ScamUpdates<dark_gray>]<reset> "
+  no-permission: "<prefix><red>Dafuer hast du keine Berechtigung."
+  plugin-disabled: "<prefix><red>ScamUpdates ist deaktiviert (<state>). Diese Aktion ist nicht moeglich. Siehe /scamupdates status."
+  busy: "<prefix><red>Es laeuft bereits eine Aktion (<operation>). Bitte warten."
+  usage: "<prefix><gray>Verwendung: <white><usage>"
+  unknown-plugin: "<prefix><red>Plugin <white><plugin></white> wurde nicht gefunden."
+  error-generic: "<prefix><red>Fehler: <error>"
+  later: "<prefix><gray>Okay, ich erinnere dich spaeter."
+  help:
+    - "<prefix><gold>Befehle:"
+    - "<yellow>/scamupdates check <gray>- Nach Updates suchen"
+    - "<yellow>/scamupdates list [updates|all] [Seite] <gray>- Plugins/Updates anzeigen"
+    - "<yellow>/scamupdates download <gray>- Gefundene Updates herunterladen"
+    - "<yellow>/scamupdates status <gray>- Status anzeigen"
+    - "<yellow>/scamupdates restore [Plugin|all] <gray>- Backup wiederherstellen"
+    - "<yellow>/scamupdates backup list|delete [Plugin|all] <gray>- Backups verwalten"
+    - "<yellow>/scamupdates restart <gray>- Neustart ausloesen (Crafty oder lokal)"
+    - "<yellow>/scamupdates sources <gray>- Updatequellen anzeigen"
+    - "<yellow>/scamupdates match [Plugin] <gray>- Offene Zuordnungen"
+    - "<yellow>/scamupdates exclude|include [Plugin] <gray>- Plugin ausschliessen/einbeziehen"
+    - "<yellow>/scamupdates config reload <gray>- Config neu laden"
+    - "<yellow>/scamupdates confirm [Token] | cancel <gray>- Bestaetigungen"
+
+  error:
+    missing-crafty:
+      - "<prefix><red><bold>FEHLER: Das Plugin wurde deaktiviert!"
+      - "<red>Die Crafty-Konfiguration ist unvollstaendig."
+      - ""
+      - "<red>Fehlende Einstellungen:"
+      - "<yellow><missing>"
+      - ""
+      - "<gray>Bitte ergaenze die fehlenden Angaben in:"
+      - "<white>plugins/ScamUpdates/config.yml"
+      - ""
+      - "<gray>Eine Anleitung findest du direkt in der Config."
+    no-internet:
+      - "<prefix><red><bold>FEHLER: Keine Internetverbindung!"
+      - "<red>ScamUpdates wurde deaktiviert."
+      - ""
+      - "<gray>Es konnte keine funktionierende externe"
+      - "<gray>Internetverbindung festgestellt werden."
+      - "<dark_gray>Ursache: <reason>"
+      - ""
+      - "<gray>Bitte ueberpruefe die Internetverbindung"
+      - "<gray>deines Servers und starte ihn anschliessend neu."
+    crafty-unavailable:
+      - "<prefix><red><bold>FEHLER: Crafty Controller nicht erreichbar!"
+      - "<red>ScamUpdates wurde deaktiviert."
+      - "<dark_gray>Ursache: <reason>"
+      - "<gray>Pruefe crafty.connection.* und die SSL-Einstellungen in der config.yml."
+    crafty-auth:
+      - "<prefix><red><bold>FEHLER: Crafty-Authentifizierung fehlgeschlagen!"
+      - "<red>ScamUpdates wurde deaktiviert."
+      - "<dark_gray>Ursache: <reason>"
+      - "<gray>Pruefe API-Token, Berechtigungen und Server-ID in der config.yml."
+    config:
+      - "<prefix><red><bold>FEHLER: Die Konfiguration ist fehlerhaft!"
+      - "<red>ScamUpdates wurde deaktiviert."
+      - "<yellow><problems>"
+      - "<gray>Korrigiere plugins/ScamUpdates/config.yml und fuehre /scamupdates config reload aus."
+
+  offline:
+    notice: "<prefix><gold>Hinweis: <yellow>Keine Internetverbindung (<reason>). Online-Pruefungen und Downloads sind pausiert; lokale Befehle bleiben verfuegbar."
+    action-blocked: "<prefix><red>Diese Aktion benoetigt eine Internetverbindung (<reason>). Lokale Befehle (Status, Historie, Backups, Restore, Neustart) bleiben nutzbar."
+
+  crafty:
+    connected: "<prefix><green>Crafty-Verbindung geprueft: Verbunden."
+    degraded:
+      - "<prefix><gold><bold>Hinweis: Crafty-Integration deaktiviert!"
+      - "<yellow><reason>"
+      - "<gray>Alle uebrigen ScamUpdates-Funktionen bleiben aktiv. Nur Crafty-Neustarts stehen nicht zur Verfuegung."
+
+  status:
+    - "<prefix><gold>Status: <white><state>"
+    - "<gray>Details: <white><details>"
+    - "<gray>Plugins erkannt: <white><plugins> <gray>| Updates: <white><updates> <gray>| Zuordnung offen: <white><pending-matches>"
+    - "<gray>Letzte Pruefung: <white><lastcheck> <gray>| Vorgemerkt (Neustart noetig): <white><pending>"
+    - "<gray>Backups: <white><backups> <gray>| Aktion: <white><operation>"
+    - "<gray>Letzte Neustart-Pruefung: <white><postrestart>"
+    - "<gray>Neustart-Mechanismus: <white><restart> <gray>| Kompatibilitaet: <white><compat>"
+
+  check:
+    cooldown: "<prefix><red>Bitte warte noch <seconds>s bis zur naechsten Pruefung."
+    started: "<prefix><gray>Suche nach Updates ..."
+    finished: "<prefix><green>Pruefung abgeschlossen: <white><updates> Update(s)<green>, <white><errors> Fehler<green>, <white><pending> Zuordnung(en) offen."
+    failed: "<prefix><red>Pruefung fehlgeschlagen: <error>"
+  updates:
+    available: "<prefix><gold>ScamUpdates: <yellow>Fuer <count> deiner Plugins sind Updates verfuegbar!"
+    pending-match: "<gray>Fuer <white><count></white> Plugin(s) ist eine Zuordnung noetig: <click:run_command:'/scamupdates match'><yellow>/scamupdates match</yellow></click>"
+    none: "<prefix><green>Alle zugeordneten Plugins sind aktuell."
+
+  list:
+    header: "<prefix><gold><title> <gray>(Seite <page>/<pages>)"
+    update: "<yellow>^ <white><plugin> <gray><from> <dark_gray>-> <green><to> <dark_gray>(<source>, <channel>)"
+    current: "<green>o <white><plugin> <gray><version> <dark_gray>(<source>)"
+    excluded: "<gray>- <white><plugin> <dark_gray>(ausgeschlossen)"
+    unmatched: "<gray>? <white><plugin> <dark_gray>(keine Quelle gefunden)"
+    pending-match: "<yellow>? <white><plugin> <dark_gray>(Zuordnung offen)"
+    pending-restart: "<aqua>~ <white><plugin> <dark_gray>(vorgemerkt, Neustart noetig)"
+    incompatible: "<gold>! <white><plugin> <dark_gray>(Update <to> passt nicht zur Minecraft-Version)"
+    manual-download: "<gold>! <white><plugin> <gray><from> <dark_gray>-> <green><to> <dark_gray>(kein Direktdownload: <url>)"
+    error: "<red>x <white><plugin> <dark_gray>(<error>)"
+    empty: "<prefix><gray>Keine Eintraege. Fuehre zuerst /scamupdates check aus."
+
+  confirm:
+    prompt: "<prefix><yellow><question> <dark_gray>(<seconds>s gueltig)"
+    question:
+      check: "Moechtest du jetzt nach Updates suchen?"
+      download: "Moechtest du wirklich <count> Plugin(s) aktualisieren?"
+      restore-one: "Plugin <plugin> von Version <current> auf die gesicherte Version <backup> zurueckstellen?"
+      restore-all: "Wirklich <count> Plugin(s) auf ihre gesicherte Version zurueckstellen?"
+      backup-delete-one: "Das Backup von <plugin> wirklich loeschen?"
+      backup-delete-all: "Wirklich alle <count> Backups loeschen?"
+      restart: "Den Server jetzt ueber Crafty Controller neu starten?"
+      exclude: "<plugin> von automatischen Updates ausschliessen?"
+      include: "<plugin> wieder in die Update-Suche aufnehmen?"
+    expired: "<prefix><red>Diese Bestaetigung ist abgelaufen."
+    invalid: "<prefix><red>Ungueltige oder bereits verwendete Bestaetigung."
+    not-owner: "<prefix><red>Diese Bestaetigung gehoert einem anderen Spieler."
+    cancelled: "<prefix><gray>Abgebrochen."
+    too-many: "<prefix><red>Zu viele offene Bestaetigungen. Bestaetige oder brich ab (/scamupdates cancel)."
+    code-info: "<prefix><yellow>Dein Bestaetigungscode: <white><bold><code></bold> <gray>(<seconds>s gueltig). Gib ihn im Amboss-Fenster ein und klicke auf das Papier."
+    code-wrong: "<prefix><red>Falscher Code (<left> Versuch(e) uebrig)."
+    code-locked: "<prefix><red>Zu viele falsche Eingaben, die Aktion wurde abgebrochen."
+    gui-failed: "<prefix><red>Das Eingabefenster konnte nicht geoeffnet werden. Nutze stattdessen: <white>/scamupdates confirm <code>"
+
+  download:
+    none: "<prefix><gray>Keine Updates zum Herunterladen. Fuehre /scamupdates check aus."
+    started: "<prefix><gray>Lade <count> Update(s) herunter ..."
+    item-ok: "<green>OK <white><plugin> <gray><from> <dark_gray>-> <green><to>"
+    item-failed: "<red>Fehler <white><plugin><gray>: <error>"
+    finished: "<prefix><green>Alle <count> Updates wurden erfolgreich heruntergeladen und zur Installation vorgemerkt!"
+    partial: "<prefix><gold><ok> Update(s) vorgemerkt, <failed> fehlgeschlagen. Die bisherigen Plugin-Dateien wurden nicht veraendert."
+    failed-all: "<prefix><red>Kein Update konnte vorgemerkt werden. Die bisherigen Plugin-Dateien wurden nicht veraendert."
+    aborted: "<prefix><red>Abbruch (all-or-nothing): Es wurde nichts vorgemerkt."
+    no-restart-warning: "<prefix><gold>Achtung: Die Updates sind NUR VORBEREITET. Es gibt keinen funktionierenden Neustart-Mechanismus, sie werden erst nach einem manuellen Neustart wirksam."
+  restart:
+    offer: "<prefix><gray>Fuer <count> Plugin(s) ist ein Neustart noetig, damit Paper die Updates uebernimmt."
+    preflight-failed: "<prefix><red>Neustart abgebrochen, Vorpruefung fehlgeschlagen:<newline><yellow><problems>"
+    requested: "<prefix><green>Crafty hat den Neustart angenommen. Der Server wird neu gestartet."
+    requested-local: "<prefix><green>Neustart per /restart ausgeloest. Der Server faehrt jetzt herunter und startet ueber das restart-script neu."
+    mechanism-missing:
+      - "<prefix><red><bold>Kein funktionierender Neustart-Mechanismus!"
+      - "<red><reason>"
+      - "<gray>Updates koennen vorbereitet werden, werden aber erst nach einem manuellen Neustart wirksam."
+    failed: "<prefix><red>Neustart fehlgeschlagen: <reason>"
+    later: "<prefix><gray>Kein Neustart. Spaeter: /scamupdates restart"
+    disabled: "<prefix><red>Neustart ueber ScamUpdates ist in der Config deaktiviert (crafty.restart.enabled)."
+    no-pending: "<prefix><red>Neustart nicht erlaubt: keine vorgemerkten Updates (crafty.restart.require-pending-updates)."
+
+  restore:
+    none-available: "<prefix><gray>Keine Backups vorhanden."
+    no-backup: "<prefix><red>Fuer <white><plugin></white> existiert kein Backup."
+    pending-blocked: "<prefix><red><white><plugin></white> hat bereits eine vorgemerkte Aenderung. Erst neu starten."
+    staged: "<green>OK <white><plugin> <gray>wird auf <white><to> <gray>zurueckgestellt (aktuell <from>)."
+    failed: "<red>Fehler <white><plugin><gray>: <error>"
+    finished: "<prefix><green><count> Rollback(s) vorgemerkt. Ein Neustart uebernimmt sie."
+
+  backup:
+    header: "<prefix><gold>Backups <gray>(Seite <page>/<pages>)"
+    entry: "<white><plugin> <gray>Version <white><version> <dark_gray>(<file>, <date>)"
+    empty: "<prefix><gray>Keine Backups vorhanden."
+    deleted: "<prefix><green><count> Backup(s) geloescht."
+    delete-failed: "<prefix><red>Backup konnte nicht geloescht werden: <error>"
+    none-for: "<prefix><red>Kein Backup fuer <white><plugin></white>."
+
+  exclude:
+    done: "<prefix><gray><white><plugin></white> wird nicht mehr automatisch aktualisiert."
+  include:
+    done: "<prefix><green><white><plugin></white> wird wieder in die Suche aufgenommen."
+    refused: "<prefix><red><white><plugin></white> wurde bei der Auswahl mit 'Keins davon' ausgeschlossen. Nur eine manuelle Zuordnung unter 'plugins:' in der config.yml hebt das auf."
+
+  match:
+    header: "<prefix><gold>Zuordnung noetig fuer:"
+    entry: "<yellow>- <white><plugin> <dark_gray>(<count> Treffer)"
+    options-header: "<prefix><gold>Fuer Plugin <white><plugin></white> wurden <count> moegliche Projekte gefunden:"
+    option: "<yellow><index>. <white><name> <dark_gray>- <source>"
+    picked: "<prefix><green><white><plugin></white> wird ueber <white><name></white> aktualisiert."
+    excluded: "<prefix><gray><white><plugin></white> wird nicht automatisch aktualisiert (gespeichert)."
+    nothing-pending: "<prefix><gray>Keine offenen Zuordnungen."
+    stale: "<prefix><red>Keine offene Auswahl fuer dieses Plugin oder ungueltige Nummer. Fuehre /scamupdates check aus."
+
+  sources:
+    header: "<prefix><gold>Updatequellen:"
+    entry: "<gray>- <white><id> <dark_gray>[<state>] <gray>Suche: <search>"
+    manual: "<gray>Manuelle Zuordnungen in der Config: <white><count>"
+
+  config:
+    reloaded: "<prefix><gray>Config neu geladen, Startpruefungen laufen ..."
+    reload-failed: "<prefix><red>Neuladen nicht moeglich: <reason>"
+
+  postrestart:
+    ok: "Update uebernommen: <plugin> -> <version>"
+    failed: "Update NICHT uebernommen: <plugin> (erwartet <expected>, installiert <actual>)"
+
+  gui:
+    disabled: "<prefix><red>Die grafische Oberflaeche ist in der gui.yml deaktiviert."
+    console: "<prefix><gray>Die grafische Oberflaeche ist nur fuer Spieler. Nutze /scamupdates help."
+    no-permission-item: "<prefix><red>Dafuer hast du keine Berechtigung."
+    click-too-fast: "<prefix><gray>Nicht so schnell."
+
+  history:
+    header: "<prefix><gold>Update-Protokoll <gray>(letzte <count> Eintraege)"
+    entry: "<gray><time> <dark_gray>| <white><action> <dark_gray>| <result> <dark_gray>| <gray><actor> <dark_gray>- <gray><message>"
+    empty: "<prefix><gray>Das Protokoll ist leer."
