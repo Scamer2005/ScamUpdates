@@ -29,6 +29,14 @@ titles:
   results: "<gold>Ergebnisse <dark_gray>(<page>/<pages>)"
   history: "<gold>Update-Protokoll <dark_gray>(<page>/<pages>)"
   yesno: "<gold>Bist du sicher?"
+  library: "<gold>Plugin-Bibliothek <dark_gray>(<page>/<pages>)"
+  detail: "<gold>Plugin: <white><plugin>"
+  match: "<gold>Kandidaten: <white><plugin> <dark_gray>(<page>/<pages>)"
+  queue: "<gold>Update-Warteschlange <dark_gray>(<page>/<pages>)"
+  queue-entry: "<gold>Warteschlange: <white><plugin>"
+  schedules: "<gold>Geplante Neustarts <dark_gray>(<page>/<pages>)"
+  schedule-edit: "<gold>Neustart-Plan <dark_gray>(<mode>)"
+  onetime: "<gold>Einmaliger Neustart"
 
 text:
   code:
@@ -44,6 +52,16 @@ text:
     cancel-requested: "<yellow>Abbruch angefordert."
     cancel-question: "Die laufende Pruefung wirklich abbrechen?"
     none: "<gray>Keine Daten."
+  library:
+    search-prompt: "Plugin-Suche (leer = alle)"
+  schedule:
+    time-prompt: "Uhrzeit HH:mm (oder Minute 00-59)"
+    label-prompt: "Plan-Bezeichnung"
+  onetime:
+    hours-prompt: "Stunden (0-168)"
+    minutes-prompt: "Minuten (0-59)"
+    seconds-prompt: "Sekunden (0-59)"
+    reason-prompt: "Neustart-Grund"
 
 items:
   # --- Statusanzeige (Platzhalter siehe jeweiliger Name/Lore) ---
@@ -86,6 +104,14 @@ items:
     lore:
       - "<gray>Status: <white><state>"
       - "<dark_gray><detail>"
+  status-restart:
+    material: CLOCK
+    name: "<red><bold>Neustart-Planung"
+    lore:
+      - "<gray>Countdown: <white><countdown>"
+      - "<gray>Naechster Plan: <white><next>"
+      - "<gray>Warteschlange: <white><queued> Eintrag/Eintraege"
+      - "<dark_gray>Zeitzone: <zone>"
 
   # --- Hauptmenue-Eintraege ---
   menu-check:
@@ -95,6 +121,42 @@ items:
       - "<gray>Sucht nach Paper- und Plugin-Updates."
       - "<gray>Die Pruefung laeuft im Hintergrund weiter,"
       - "<gray>auch wenn du das Menue schliesst."
+      - ""
+      - "<yellow>Klick: oeffnen"
+  menu-single:
+    material: ENCHANTED_BOOK
+    name: "<green><bold>Einzelplugin-Updates"
+    lore:
+      - "<gray>Uebersicht aller installierten Plugins,"
+      - "<gray>Suche, Filter, Detailansicht, Einzelupdates"
+      - "<gray>und Backup-Wiederherstellung."
+      - ""
+      - "<yellow>Klick: Bibliothek oeffnen"
+  menu-queue:
+    material: HOPPER
+    name: "<yellow><bold>Update-Warteschlange"
+    lore:
+      - "<gray>Vorgemerkte Plugins (<white><count><gray>),"
+      - "<gray>Erinnerungen mit Jetzt aktualisieren,"
+      - "<gray>Spaeter und Nicht mehr erinnern."
+      - ""
+      - "<yellow>Klick: oeffnen"
+  menu-schedule:
+    material: REPEATER
+    name: "<gold><bold>Geplante Neustarts"
+    lore:
+      - "<gray>Wiederkehrende Neustarts (stuendlich,"
+      - "<gray>taeglich, woechentlich, mehrere Tage)"
+      - "<gray>in <white><zone><gray>."
+      - ""
+      - "<yellow>Klick: verwalten"
+  menu-onetime:
+    material: REDSTONE_TORCH
+    name: "<red><bold>Einmaliger Neustart"
+    lore:
+      - "<gray>Sofort oder mit Countdown starten"
+      - "<gray>(Presets oder eigene Zeit mit Vorschau)."
+      - "<gray>Status: <white><countdown>"
       - ""
       - "<yellow>Klick: oeffnen"
   menu-history:
@@ -320,6 +382,402 @@ items:
       - "<gray>auf dieses Papier, um zu bestaetigen."
       - "<dark_gray>Schliessen = abbrechen"
 
+  # --- Plugin-Bibliothek ---
+  lib-update:
+    material: LIME_DYE
+    name: "<green><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Neueste: <green><latest>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <green><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-current:
+    material: LIGHT_BLUE_DYE
+    name: "<aqua><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Neueste: <aqua><latest>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <aqua><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-open:
+    material: YELLOW_DYE
+    name: "<yellow><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Neueste: <yellow><latest>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <yellow><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-problem:
+    material: RED_DYE
+    name: "<red><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Neueste: <white><latest>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <red><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-excluded:
+    material: GRAY_DYE
+    name: "<gray><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <gray><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-pending:
+    material: CYAN_DYE
+    name: "<dark_aqua><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Vorgemerkt: <aqua><latest>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <aqua><status>"
+      - "<gray>Kompatibilitaet: <white><compat>"
+      - "<gray>Backup: <white><backup>"
+      - "<yellow>Klick: Details oeffnen"
+  lib-search:
+    material: NAME_TAG
+    name: "<yellow>Suche: <white><query>"
+    lore:
+      - "<gray>Linksklick: Suchbegriff per Eingabe setzen"
+      - "<gray>Rechtsklick: Suche zuruecksetzen"
+  lib-filter:
+    material: HOPPER
+    name: "<yellow>Filter: <white><filter>"
+    lore: ["<gray>Klick: Statusfilter wechseln"]
+  lib-sort:
+    material: COMPARATOR
+    name: "<yellow>Sortierung: <white><sort>"
+    lore: ["<gray>Klick: Sortierung wechseln"]
+  lib-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Keine Plugins gefunden"
+    lore: ["<gray>Passe Suche oder Filter an."]
+
+  # --- Plugin-Detailansicht ---
+  detail-plugin:
+    material: BOOK
+    name: "<gold><bold><plugin>"
+    lore:
+      - "<gray>Installierte Version: <white><installed>"
+      - "<gray>Status: <white><status>"
+      - "<gray>Warteschlange: <white><queued>"
+  detail-update:
+    material: EXPERIENCE_BOTTLE
+    name: "<aqua><bold>Versionsstand"
+    lore:
+      - "<gray>Neueste bekannte Version: <white><latest>"
+      - "<gray>Kanal: <white><channel>"
+      - "<dark_gray><detail>"
+  detail-source:
+    material: COMPASS
+    name: "<yellow><bold>Updatequelle"
+    lore:
+      - "<gray>Quelle: <white><source>"
+      - "<gray>Projekt: <white><project>"
+      - "<dark_gray><url>"
+  detail-compat:
+    material: GRASS_BLOCK
+    name: "<green><bold>Kompatibilitaet"
+    lore:
+      - "<gray>Server: <white><mc> (<server-compat>)"
+      - "<gray>Plugin-Ziele: <white><plugin-mc>"
+  detail-backup:
+    material: CHEST
+    name: "<gold><bold>Backup-Status"
+    lore:
+      - "<gray>Status: <white><status>"
+      - "<gray>Gesicherte Version: <white><version>"
+      - "<gray>Datei: <white><file>"
+      - "<gray>Erstellt: <white><date>"
+      - "<yellow>Klick: Backup im Chat anzeigen"
+  detail-history:
+    material: WRITTEN_BOOK
+    name: "<aqua><bold>Updateverlauf (<count>)"
+    lore:
+      - "<gray>Letzte Eintraege zu diesem Plugin:"
+  detail-check:
+    material: SPYGLASS
+    name: "<aqua><bold>Update suchen"
+    lore: ["<gray>Prueft gezielt dieses Plugin online."]
+  detail-download:
+    material: EMERALD
+    name: "<green><bold>Update herunterladen"
+    lore:
+      - "<gray>Zielversion: <white><target>"
+      - "<gray>Validiert die JAR, sichert das Backup"
+      - "<gray>und merkt fuer den Neustart vor."
+      - "<yellow>Klick: mit Bestaetigung starten"
+  detail-match:
+    material: NAME_TAG
+    name: "<yellow><bold>Kandidaten / Quelle waehlen"
+    lore:
+      - "<gray>Offene Treffer: <white><count>"
+      - "<yellow>Klick: Auswahlmenue oeffnen"
+  detail-queue-add:
+    material: HOPPER
+    name: "<yellow><bold>Zur Warteschlange hinzufuegen"
+    lore: ["<gray>Plugin dauerhaft fuer Updates vormerken."]
+  detail-queue-remove:
+    material: BARRIER
+    name: "<gray><bold>Aus Warteschlange entfernen"
+    lore: ["<gray>Entfernt dieses Plugin aus queue.yml."]
+  detail-exclude:
+    material: GRAY_DYE
+    name: "<gray><bold>Plugin ausschliessen"
+    lore: ["<gray>Schliesst automatische Updates aus (mit Bestaetigung)."]
+  detail-include:
+    material: LIME_DYE
+    name: "<green><bold>Plugin wieder einbeziehen"
+    lore: ["<gray>Nimmt automatische Updates wieder auf (mit Bestaetigung)."]
+  detail-restore:
+    material: ENDER_CHEST
+    name: "<red><bold>Backup wiederherstellen"
+    lore:
+      - "<gray>Rollt auf die gesicherte Version <white><version><gray> zurueck."
+      - "<yellow>Klick: mit Bestaetigung vormerken"
+
+  # --- Kandidaten-Auswahl ---
+  match-candidate:
+    material: PAPER
+    name: "<yellow><bold><index>. <name>"
+    lore:
+      - "<gray>Quelle: <white><source>"
+      - "<gray>Projekt-ID: <white><project>"
+      - "<dark_gray><url>"
+      - "<green>Klick: diese Quelle zuordnen"
+  match-none:
+    material: BARRIER
+    name: "<red><bold>Keins davon"
+    lore:
+      - "<gray>Keiner der Treffer passt."
+      - "<gray>Startet KEIN Update und schliesst das Plugin aus."
+  match-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Keine offenen Kandidaten"
+    lore: ["<gray>Fuer dieses Plugin liegt keine Mehrfachauswahl vor."]
+
+  # --- Update-Warteschlange ---
+  queue-entry-ready:
+    material: LIME_DYE
+    name: "<green><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>-> <green><target>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <green><status>"
+      - "<gray><detail>"
+      - "<yellow>Klick: Aktionen (Jetzt / Spaeter / Nicht mehr erinnern)"
+  queue-entry-ambiguous:
+    material: YELLOW_DYE
+    name: "<yellow><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>| <gray>Mehrere Treffer: <yellow><candidates>"
+      - "<gray>Status: <yellow><status>"
+      - "<gray><detail>"
+      - "<yellow>Klick: Kandidaten waehlen oder verwalten"
+  queue-entry-waiting:
+    material: CLOCK
+    name: "<aqua><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed>"
+      - "<gray>Quelle: <white><source> <dark_gray>| <gray>Status: <aqua><status>"
+      - "<gray><detail>"
+      - "<yellow>Klick: verwalten"
+  queue-entry-snoozed:
+    material: LIGHT_BLUE_DYE
+    name: "<blue><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed> <dark_gray>-> <white><target>"
+      - "<gray>Status: <blue><status>"
+      - "<gray><detail>"
+      - "<yellow>Klick: verwalten"
+  queue-entry-problem:
+    material: RED_DYE
+    name: "<red><bold><plugin>"
+    lore:
+      - "<gray>Installiert: <white><installed>"
+      - "<gray>Status: <red><status>"
+      - "<gray><detail>"
+      - "<yellow>Klick: Details oder entfernen"
+  queue-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Warteschlange ist leer"
+    lore: ["<gray>Fuege Plugins ueber die Plugin-Bibliothek hinzu."]
+  queue-check-all:
+    material: SPYGLASS
+    name: "<aqua><bold>Warteschlange neu pruefen"
+    lore: ["<gray>Startet einen Update-Check."]
+  queue-download-all:
+    material: EMERALD
+    name: "<green><bold>Alle bereiten Updates laden"
+    lore:
+      - "<gray>Bereite Updates: <white><count>"
+      - "<yellow>Klick: Download mit Bestaetigung"
+  queue-action-update:
+    material: LIME_CONCRETE
+    name: "<green><bold>Jetzt aktualisieren"
+    lore:
+      - "<gray>Zielversion: <white><target>"
+      - "<gray>Startet den sicheren Einzelupdate-Prozess."
+  queue-action-choose:
+    material: YELLOW_CONCRETE
+    name: "<yellow><bold>Kandidaten waehlen"
+    lore:
+      - "<gray>Mehrere Projekte gefunden (<count>)."
+      - "<gray>Waehle ein Projekt oder 'Keins davon'."
+  queue-action-later:
+    material: CLOCK
+    name: "<yellow><bold>Spaeter"
+    lore:
+      - "<gray>Eintrag bleibt in queue.yml erhalten."
+      - "<gray>Erinnert spaeter erneut."
+  queue-action-dismiss:
+    material: RED_CONCRETE
+    name: "<red><bold>Nicht mehr erinnern"
+    lore:
+      - "<gray>Entfernt den Eintrag dauerhaft"
+      - "<gray>aus der Warteschlange."
+  queue-action-detail:
+    material: BOOK
+    name: "<aqua><bold>Plugin-Details oeffnen"
+    lore: ["<gray>Zur Detailansicht dieses Plugins."]
+
+  # --- Geplante Neustarts ---
+  sched-rule-on:
+    material: LIME_DYE
+    name: "<green><bold><label>"
+    lore:
+      - "<gray>Typ: <white><freq> <dark_gray>| <gray>Zeit: <white><time> <dark_gray>(<zone>)"
+      - "<gray>Tage: <white><days>"
+      - "<gray>Naechster Lauf: <green><next>"
+      - "<gray>Nur bei Updates: <white><pending>"
+      - "<yellow>Klick: bearbeiten"
+  sched-rule-off:
+    material: GRAY_DYE
+    name: "<gray><bold><label> <dark_gray>(deaktiviert)"
+    lore:
+      - "<gray>Typ: <white><freq> <dark_gray>| <gray>Zeit: <white><time> <dark_gray>(<zone>)"
+      - "<gray>Tage: <white><days>"
+      - "<gray>Status: <gray>pausiert"
+      - "<yellow>Klick: bearbeiten"
+  sched-empty:
+    material: STRUCTURE_VOID
+    name: "<gray>Keine geplanten Neustarts"
+    lore: ["<gray>Erstelle unten einen neuen Zeitplan."]
+  sched-add:
+    material: NETHER_STAR
+    name: "<green><bold>Neuen Zeitplan erstellen"
+    lore: ["<gray>Stuendlich, taeglich, woechentlich oder mehrere Tage."]
+  sched-readiness:
+    material: COMPARATOR
+    name: "<aqua><bold>Neustart-Bereitschaft"
+    lore:
+      - "<gray>Modus: <white><mode>"
+      - "<gray>Bereit: <white><ready>"
+      - "<gray><detail>"
+  sched-active:
+    material: CLOCK
+    name: "<gold><bold>Aktiver Countdown"
+    lore:
+      - "<gray>Verbleibend: <white><remaining>"
+      - "<gray>Grund: <white><reason>"
+      - "<yellow>Klick: Einmal-Menue oeffnen"
+  sched-freq:
+    material: REPEATER
+    name: "<yellow><bold>Frequenz: <white><freq>"
+    lore: ["<gray>Klick: wechseln (Stuendlich / Taeglich / Woechentlich / Mehrere Tage)"]
+  sched-time:
+    material: CLOCK
+    name: "<aqua><bold>Uhrzeit: <white><time>"
+    lore:
+      - "<gray>Zeitzone: <white><zone>"
+      - "<yellow>Klick: ueber Eingabefeld aendern"
+  sched-label:
+    material: NAME_TAG
+    name: "<gold><bold>Bezeichnung: <white><label>"
+    lore: ["<yellow>Klick: Bezeichnung aendern"]
+  sched-require-pending:
+    material: EXPERIENCE_BOTTLE
+    name: "<yellow><bold>Nur bei vorgemerkten Updates: <white><state>"
+    lore: ["<gray>Klick: umschalten"]
+  sched-save:
+    material: LIME_CONCRETE
+    name: "<green><bold>Zeitplan speichern"
+    lore: ["<gray>Prueft auf Konflikte und speichert in restarts.yml."]
+  sched-toggle:
+    material: LEVER
+    name: "<yellow><bold>Status: <white><state>"
+    lore: ["<gray>Klick: aktivieren / deaktivieren"]
+  sched-delete:
+    material: RED_CONCRETE
+    name: "<red><bold>Zeitplan loeschen"
+    lore: ["<gray>Entfernt diesen Plan dauerhaft."]
+  sched-day-on:
+    material: LIME_STAINED_GLASS_PANE
+    name: "<green><bold><day>"
+    lore: ["<gray>Aktiv. Klick: abwaehlen"]
+  sched-day-off:
+    material: GRAY_STAINED_GLASS_PANE
+    name: "<gray><day>"
+    lore: ["<gray>Inaktiv. Klick: auswaehlen"]
+
+  # --- Einmaliger Neustart ---
+  onetime-status:
+    material: CLOCK
+    name: "<gold><bold>Aktueller Countdown"
+    lore:
+      - "<gray>Status: <white><state>"
+      - "<gray>Verbleibend: <white><remaining>"
+      - "<gray>Zielzeit: <white><target> <dark_gray>(<zone>)"
+      - "<gray>Grund: <white><reason>"
+  onetime-cancel:
+    material: BARRIER
+    name: "<red><bold>Countdown abbrechen"
+    lore: ["<gray>Stoppt den laufenden Countdown und entfernt ihn aus restarts.yml."]
+  onetime-preset-immediate:
+    material: REDSTONE_BLOCK
+    name: "<red><bold>Sofort"
+    lore:
+      - "<gray>Startet den Server ohne Warnphase neu."
+      - "<gray>Ersetzt jeden laufenden Countdown."
+  onetime-preset:
+    material: CLOCK
+    name: "<yellow><bold><label>"
+    lore:
+      - "<gray>Startet einmaligen Countdown."
+      - "<gray>Ersetzt einen vorherigen Countdown vollstaendig."
+  onetime-custom-hours:
+    material: PAPER
+    name: "<aqua>Stunden: <white><hours>"
+    lore: ["<gray>Klick: Stunden per Eingabe setzen"]
+  onetime-custom-minutes:
+    material: PAPER
+    name: "<aqua>Minuten: <white><minutes>"
+    lore: ["<gray>Klick: Minuten per Eingabe setzen"]
+  onetime-custom-seconds:
+    material: PAPER
+    name: "<aqua>Sekunden: <white><seconds>"
+    lore: ["<gray>Klick: Sekunden per Eingabe setzen"]
+  onetime-custom-reason:
+    material: NAME_TAG
+    name: "<yellow>Grund: <white><reason>"
+    lore: ["<gray>Klick: Grund per Eingabe setzen"]
+  onetime-custom-start:
+    material: LIME_CONCRETE
+    name: "<green><bold>Benutzerdefiniert starten"
+    lore:
+      - "<gray>Dauer-Vorschau: <white><duration>"
+      - "<gray>Zielzeit-Vorschau: <white><target> <dark_gray>(<zone>)"
+      - "<yellow>Klick: einmaligen Neustart planen"
+  onetime-readiness:
+    material: COMPARATOR
+    name: "<aqua><bold>Neustart-Bereitschaft"
+    lore:
+      - "<gray>Modus: <white><mode>"
+      - "<gray>Bereit: <white><ready>"
+      - "<gray><detail>"
+
 design-labels:
   filter-all: "Alle"
   filter-updates: "Nur Updates"
@@ -338,3 +796,19 @@ design-labels:
   compat-too-old: "zu alt (nicht unterstuetzt)"
   compat-unsupported-newer: "zu neu (nicht unterstuetzt)"
   compat-unknown: "unbekannt"
+  lib-filter-all: "Alle"
+  lib-filter-updates: "Updates verfuegbar"
+  lib-filter-current: "Aktuell"
+  lib-filter-problems: "Fehler / Probleme"
+  lib-filter-excluded: "Ausgeschlossen"
+  lib-filter-backup: "Mit Backup"
+  lib-sort-name: "Name (A-Z)"
+  lib-sort-status: "Status"
+  lib-sort-updates: "Updates zuerst"
+  lib-sort-backup: "Backup zuerst"
+  freq-hourly: "Stuendlich"
+  freq-daily: "Taeglich"
+  freq-weekly: "Woechentlich"
+  freq-multi_day: "Mehrere Wochentage"
+  yes-label: "ja"
+  no-label: "nein"

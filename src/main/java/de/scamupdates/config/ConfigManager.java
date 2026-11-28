@@ -16,6 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -135,6 +137,26 @@ public final class ConfigManager {
         range(p, c, "history.max-entries", 10, 100000);
         range(p, c, "confirmations.code-length", 4, 12);
         range(p, c, "confirmations.max-attempts", 1, 10);
+        if (c.contains("queue.snooze-minutes")) range(p, c, "queue.snooze-minutes", 1, 10080);
+        if (c.contains("restarts.timezone")) {
+            String tz = c.getString("restarts.timezone", "").trim();
+            if (tz.isEmpty()) p.add("restarts.timezone: darf nicht leer sein");
+            else {
+                try {
+                    ZoneId.of(tz);
+                } catch (DateTimeException e) {
+                    p.add("restarts.timezone: ungueltige Zeitzone (" + tz + ")");
+                }
+            }
+        }
+        if (c.isList("restarts.warning-seconds")) {
+            for (Object item : c.getList("restarts.warning-seconds", List.of())) {
+                if (!(item instanceof Number num) || num.intValue() < 1 || num.intValue() > 86400) {
+                    p.add("restarts.warning-seconds: Werte muessen ganze Zahlen zwischen 1 und 86400 sein");
+                    break;
+                }
+            }
+        }
         String method = c.getString("confirmations.method", "");
         if (!method.equals("anvil") && !method.equals("chat")) {
             p.add("confirmations.method: ungueltig (erlaubt: anvil, chat)");
@@ -266,6 +288,32 @@ public final class ConfigManager {
 
     public boolean sourceEnabled(String id) { return cfg.getBoolean("sources." + id + ".enabled", true); }
     public String githubToken() { return cfg.getString("sources.github.token", ""); }
+
+    public int queueSnoozeMinutes() { return Math.max(1, cfg.getInt("queue.snooze-minutes", 60)); }
+    public boolean queueNotifyOnJoin() { return cfg.getBoolean("queue.notify-on-join", true); }
+
+    public boolean restartsEnabled() { return cfg.getBoolean("restarts.enabled", true); }
+
+    public ZoneId restartTimezone() {
+        String raw = cfg.getString("restarts.timezone", "Europe/Berlin");
+        if (raw == null || raw.isBlank()) return ZoneId.of("Europe/Berlin");
+        try {
+            return ZoneId.of(raw.trim());
+        } catch (DateTimeException e) {
+            return ZoneId.of("Europe/Berlin");
+        }
+    }
+
+    public List<Integer> restartWarningSeconds() {
+        List<Integer> raw = cfg.getIntegerList("restarts.warning-seconds");
+        if (raw.isEmpty()) return List.of(300, 180, 60, 30, 10, 5, 4, 3, 2, 1);
+        List<Integer> clean = new ArrayList<>();
+        for (Integer s : raw) {
+            if (s != null && s >= 1 && s <= 86400 && !clean.contains(s)) clean.add(s);
+        }
+        clean.sort(Comparator.reverseOrder());
+        return clean.isEmpty() ? List.of(300, 180, 60, 30, 10, 5, 4, 3, 2, 1) : List.copyOf(clean);
+    }
 
     public Optional<ManualMapping> manualMapping(String pluginName) {
         ConfigurationSection sec = cfg.getConfigurationSection("plugins");

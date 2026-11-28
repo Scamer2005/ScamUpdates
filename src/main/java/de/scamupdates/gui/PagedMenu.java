@@ -25,6 +25,9 @@ public abstract class PagedMenu<T> extends Menu {
     /** Zusaetzliche Bedienelemente (Filter, Sortierung) in den Slots EXTRA_LEFT/EXTRA_RIGHT. */
     protected void extras() {}
 
+    /** Variante mit bereits geladenen Eintraegen, damit teure Auswertungen nicht mehrfach laufen. */
+    protected void extras(List<T> all) { extras(); }
+
     protected void back() {}
 
     protected boolean hasBack() { return true; }
@@ -44,7 +47,7 @@ public abstract class PagedMenu<T> extends Menu {
     protected final void build() {
         frame();
         List<T> all = entries();
-        pages = pageCount();
+        pages = Math.max(1, (all.size() + Slots.CONTENT.length - 1) / Slots.CONTENT.length);
         if (page >= pages) page = pages - 1;
         if (page < 0) page = 0;
         if (all.isEmpty()) {
@@ -60,7 +63,7 @@ public abstract class PagedMenu<T> extends Menu {
         if (page > 0) set(Slots.PREV, Button.of(gui.config().item("nav-prev", Material.SPECTRAL_ARROW, r).build(), c -> goTo(page - 1)));
         if (page < pages - 1) set(Slots.NEXT, Button.of(gui.config().item("nav-next", Material.SPECTRAL_ARROW, r).build(), c -> goTo(page + 1)));
         if (hasBack()) backButton(this::back);
-        extras();
+        extras(all);
     }
 
     protected final void goTo(int p) {

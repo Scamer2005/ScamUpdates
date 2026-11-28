@@ -3,7 +3,7 @@
 Update-Manager für Paper **1.20 bis 1.21.x**: erkennt installierte Plugins, sucht Updates (Modrinth, Hangar, SpigotMC/Spiget, GitHub Releases, Jenkins, direkte Links), lädt sie geprüft nach `plugins/update/`, sichert die alte JAR in `plugins/update-backup/`, bietet Rollback, ein Menü (GUI) und löst Neustarts über **Crafty Controller** oder lokal per `/restart` aus.
 
 > ## Status (bitte lesen)
-> In Schritt 1 wurden Build-System (Gradle-Wrapper 9.2.0, JDK 25, Java-17-Bytecode) und Basis-Tests verifiziert. In Schritt 2 wurden die **Crafty-Isolation** (Crafty komplett optional und fehlerisoliert), die saubere Trennung des **Offline-Betriebs** (`ACTIVE_OFFLINE`) sowie die strukturellen Grundlagen fuer Warteschlange, Einzel-Updates und Neustart-Planung umgesetzt und per JUnit 5 getestet. Auf einem echten Paper-Server (`1.20`–`1.21.x`) noch **nicht** getestet sind: Live-GUI-Rendering, Amboss-Bestätigung, echter `/restart` und Live-Paper-Updates.
+> In Schritt 1 wurden Build-System (Gradle-Wrapper 9.2.0, JDK 25, Java-17-Bytecode) und Basis-Tests verifiziert. In Schritt 2 wurden die **Crafty-Isolation** (Crafty komplett optional und fehlerisoliert), die saubere Trennung des **Offline-Betriebs** (`ACTIVE_OFFLINE`) sowie die Grundlagen fuer Warteschlange, Einzel-Updates und Neustart-Planung umgesetzt. In Schritt 3 wurden die vollständige **Update-Warteschlange** (`queue.yml` + GUI/Aktionen), die **Einzelplugin-Verwaltung** (Plugin-Bibliothek, Detailansicht, Kandidatenwahl, `downloadSingle`), die **wiederkehrenden geplanten Neustarts** (`Europe/Berlin`, DST-sicher) und **einmalige Neustarts** (Presets, benutzerdefinierte H/M/S-Eingabe, Live-Vorschau, Wiederaufnahme nach Neustart) vollständig implementiert und per JUnit 5 getestet. Auf einem echten Paper-Server (`1.20`–`1.21.x`) noch **nicht** getestet sind: Live-GUI-Rendering, Amboss-Eingabe/Bestätigung, echter `/restart` und Live-Neustarts.
 
 ## Neu in diesem Stand
 
@@ -11,17 +11,19 @@ Update-Manager für Paper **1.20 bis 1.21.x**: erkennt installierte Plugins, suc
 |---|---|
 | Versionsbereich 1.20–1.21.x mit Kompatibilitätsstatus (`getestet`/`ungetestet`/`zu alt`/`zu neu`) | gebaut & per JUnit 5 geprüft (ohne Live-Server) |
 | Crafty **optional & isoliert** (`crafty.enabled: false` → lokal `/restart`; Crafty-Fehler deaktivieren nur Crafty, nie das Hauptplugin) | umgesetzt & per JUnit 5 (Mock-Server) getestet |
-| **Offline-Betrieb (`ACTIVE_OFFLINE`)**: lokale Befehle/Backups/Restore/Neustart bleiben nutzbar; Online-Funktionen erholen sich automatisch | umgesetzt & per JUnit 5 getestet |
-| Grundlagen für Schritt 3 (`UpdateQueueStore` / `queue.yml`, `RestartScheduleStore` / `restarts.yml`, Einzel-Download- & Readiness-Basis) | strukturell vorbereitet & per JUnit 5 getestet |
+| **Offline-Betrieb (`ACTIVE_OFFLINE`)**: lokale Befehle/Backups/Restore/Neustart/Warteschlange/Zeitpläne bleiben nutzbar; Online-Funktionen erholen sich automatisch | umgesetzt & per JUnit 5 getestet |
+| **Update-Warteschlange (`queue.yml`, `QueueService`)**: Vormerken, Start-/Zyklus-Prüfung, **Jetzt aktualisieren** / **Später** / **Nicht mehr erinnern**, Mehrdeutigkeiten mit **Keins davon**, Fehlerschutz | umgesetzt & per JUnit 5 getestet |
+| **Einzelplugin-Verwaltung**: Plugin-Bibliothek (Seiten, Amboss-Suche, Filter, Sortierung), Detailansicht, `downloadSingle`, Quellenwahl, Ausschluss, Backup-Restore | umgesetzt & per JUnit 5 getestet (ohne Live-GUI) |
+| **Geplante & einmalige Neustarts (`restarts.yml`, `RestartCoordinator`)**: Stündlich/Täglich/Wöchentlich/Mehrere Tage in `Europe/Berlin`, Konfliktprüfung, 7 Presets (inkl. `Sofort`), Custom H/M/S mit Vorschau, konfigurierbare Warnzeiten | umgesetzt & per JUnit 5 getestet (ohne Live-GUI) |
 | Kompakte `config.yml`, `gui.yml`, Migration (inkl. Kommentar-Aktualisierung) | gebaut & per JUnit 5 getestet |
 | Vorgangsverwaltung (IDs, Status, Doppelstart-Schutz, neustartsicher) | gebaut & per JUnit 5 getestet |
 | Update-Protokoll (`history.jsonl`, Aufbewahrung, Token-Schwärzung) | gebaut & per JUnit 5 getestet |
 | Paper-Prüfung über den PaperMC-Downloaddienst (Fill v3) für Status und Update-Check | gebaut & Parsing per JUnit 5 getestet |
-| GUI-Grundsystem, Hauptmenü mit Statusanzeige, Update-Check-Menü, Ergebnisliste, Protokoll-Menü | kompiliert; Live-Optik auf Paper-Server ungetestet |
-| Einmalcode per Amboss-Fenster (Chat-Fallback) für alle Bestätigungen | Logik per JUnit 5 getestet; Amboss-UI ungetestet |
-| `/update` = `/scamupdates`, neue Permissions, `history` | kompiliert; Ingame-Verhalten ungetestet |
+| GUI-System: Hauptmenü, Update-Check-Menü, Ergebnisliste, Bibliothek, Detailansicht, Kandidatenwahl, Warteschlange, Zeitpläne/Editor, Einmaliger Neustart, Protokoll-Menü | kompiliert & Logik getestet; Live-Optik auf Paper-Server ungetestet |
+| Einmalcode per Amboss-Fenster (Chat-Fallback) für Bestätigungen | Logik per JUnit 5 getestet; Amboss-UI ungetestet |
+| `/update` = `/scamupdates`, Permissions (`update.single`, `queue`, `schedule`, …), `history` | kompiliert; Ingame-Verhalten ungetestet |
 
-**Noch nicht umgesetzt** (folgt erst nach Freigabe von Schritt 3): Vollständige Update-Warteschlange mit GUI/Befehlen, Einzelplugin-Verwaltung mit GUI, Zeitplan-/Neustart-GUIs, gesamtes Serverupdate (Paper + Plugins) samt Paper-JAR-Austausch, Backup-GUI und Einstellungsmenü. Diese Funktionen bleiben über die bestehenden Befehle (`download`, `restore`, `backup`, `restart`, …) nutzbar.
+**Noch nicht umgesetzt** (folgt erst nach Freigabe von Schritt 4): Gesamtes Serverupdate (Paper + Plugins in einem Vorgang), Paper-JAR-Austausch, Backup-Übersichts-GUI und Einstellungs-GUI. Diese Bereiche sind noch nicht aktiv; bestehende CLI-Befehle (`backup list`, `backup delete`, `restore`, `config reload`) bleiben normal nutzbar.
 
 ## Bauen
 
@@ -53,17 +55,21 @@ Build über den mitgelieferten Gradle-Wrapper (`./gradlew clean test build` unte
 
 ## Menü (GUI)
 
-`/scamupdates` oder `/update` ohne Argumente öffnet das Hauptmenü (nur für Spieler; die Konsole bekommt die Hilfe). Aufbau: Statusleiste (Minecraft-Version mit Kompatibilitätsstatus, Paper-Build und neuester stabiler Build, Pluginanzahl, Updates, Serversteuerung mit Klick „Verbindung prüfen“, ScamUpdates-Status), darunter die Funktionsbereiche. Die Statusanzeige aktualisiert sich selbstständig (`general.refresh-ticks` in der `gui.yml`).
+`/scamupdates` oder `/update` ohne Argumente öffnet das Hauptmenü (nur für Spieler; die Konsole bekommt die Hilfe). Aufbau: Statusleiste (Minecraft-Version mit Kompatibilitätsstatus, Paper-Build und neuester stabiler Build, Pluginanzahl, Updates, Serversteuerung mit Klick „Verbindung prüfen“, Neustart-/Warteschlangen-Status mit aktivem Countdown und nächstem Zeitplan), darunter die 6 Funktionsbereiche:
 
-* **Update-Check:** Schnellprüfung oder detaillierte Prüfung. Während der Prüfung: Fortschrittsbalken mit Animation, aktuelles Plugin, Dauer und Vorgangs-ID; unten rechts ein **Barrier** zum Abbrechen (Ja/Nein-Abfrage). Das Menü zu schließen bricht nichts ab, beim erneuten Öffnen wird der laufende Stand gezeigt. Danach Zusammenfassung (Updates, aktuell, Zuordnung offen, Probleme, ausgeschlossen, Paper-Status) und Ergebnisliste mit Filter, Detailgrad und Seiten.
-* **Protokoll:** alle Updates, Rollbacks, Backup-Löschungen, Neustarts und Prüfungen, sortierbar (neueste, älteste, Probleme zuerst).
-* Alle Klicks werden serverseitig neu geprüft (Plugin aktiv? Berechtigung? Doppelklick-Sperre `click-cooldown-ms`). Items sind nicht entnehmbar; Drag, Shift-Klick und Zahlentasten sind gesperrt.
+* **Update-Check:** Schnellprüfung oder detaillierte Prüfung mit Fortschrittsbalken, Abbruch per Barrier-Button und filterbarer Ergebnisliste.
+* **Einzelplugin-Verwaltung (`Plugin-Bibliothek` & `Detailansicht`):** Alle installierten Plugins mit Version, letzter bekannter Version, Quelle, Status, Kompatibilität und Backup-Info; Seitenwechsel, Amboss-Suche, Statusfilter, Sortierung; pro Plugin Einzelprüfung, Einzeldownload (`downloadSingle`), Kandidatenauswahl (inkl. **Keins davon**), Warteschlangen-Steuerung, Ausschluss/Wiederaufnahme und Backup-Wiederherstellung.
+* **Update-Warteschlange:** Dauerhaft vorgemerkte Plugins (`queue.yml`), automatische Prüfung beim Start und bei Update-Checks, Admin-Aktionen **Jetzt aktualisieren**, **Später** (`queue.snooze-minutes`) und **Nicht mehr erinnern**, Mehrdeutigkeits-Auswahl mit **Keins davon**.
+* **Geplante Neustarts & Editor:** Wiederkehrende Pläne (`HOURLY`, `DAILY`, `WEEKLY`, `MULTI_DAY`) in `Europe/Berlin` (DST-sicher), Wochentags-Auswahl, Konflikt- und Duplikatprüfung, Aktivieren/Deaktivieren/Löschen.
+* **Einmaliger Neustart:** 7 Presets (**Sofort** ohne Warnphase, 10s, 1m, 5m, 10m, 30m, 1h), benutzerdefinierte Eingabe (Stunden/Minuten/Sekunden + Grund) per Amboss mit Live-Vorschau von Dauer und Zielzeit, Abbruch-Button und Bereitschaftsanzeige. Ein neuer Countdown ersetzt immer einen vorherigen; nach einem Neustart wird ein noch offener einmaliger Countdown fortgesetzt, abgelaufene werden verworfen.
+* **Protokoll:** Alle Updates, Rollbacks, Backup-Löschungen, Warteschlangen-Aktionen, Zeitpläne und Neustarts, sortierbar (neueste, älteste, Probleme zuerst).
+* Alle Klicks werden serverseitig auf Pluginzustand, Berechtigung und `click-cooldown-ms` geprüft. Items sind nicht entnehmbar; Drag, Shift-Klick und Zahlentasten sind gesperrt.
 * **Items und Köpfe:** Standardmäßig werden Materialien verwendet (Farbstoffe als Statusfarben). Custom-Köpfe sind pro Item über `texture` in der `gui.yml` möglich (Base64 oder `textures.minecraft.net`-URL; andere Hosts werden abgelehnt). Es werden **keine erfundenen Texturwerte** mitgeliefert. Plugin-Icons als Köpfe sind technisch nicht möglich.
 * Die Optik wurde nicht gesehen; Anpassungen laufen über `gui.yml` (Titel, Materialien, Namen, Lores, Sounds, Design).
 
 ## Einmalcode-Bestätigung
 
-Kritische Aktionen (Downloads/Updates, Wiederherstellung, Backup-Löschung, Neustart per Befehl, Ausschließen/Aufnehmen) brauchen einen zufälligen Code, der an **Spieler und Aktion** gebunden, **einmalig** und zeitlich begrenzt ist (`confirmations.*`). Nicht erforderlich: Update-Check, (später) Neustart-Planung.
+Kritische Aktionen (Downloads/Updates inkl. Einzelupdates und Warteschlangen-Downloads, Wiederherstellung, Backup-Löschung, direkter `/scamupdates restart`-Befehl, Ausschließen/Aufnehmen) brauchen einen zufälligen Code, der an **Spieler und Aktion** gebunden, **einmalig** und zeitlich begrenzt ist (`confirmations.*`). Nicht erforderlich: Update-Check sowie Anlegen, Bearbeiten, Abbrechen oder Sofort-/Countdown-Auslösen von **geplanten und einmaligen Neustarts**.
 
 * `confirmations.method: anvil`: Es öffnet sich ein Amboss-Fenster, der Code steht im Chat und im Papier-Tooltip. Code in das Textfeld tippen, dann auf das **Papier** (linkes Feld oder Ergebnisfeld) klicken. Das Klicken statt „Ergebnis entnehmen“ ist Absicht: sonst bräuchten Spieler im Überlebensmodus Erfahrungslevel. Fenster schließen = abbrechen. Nach `max-attempts` falschen Eingaben wird die Aktion abgebrochen.
 * Konsole oder `method: chat`: klickbarer Chat-Token (`/scamupdates confirm <Code>`).
@@ -84,12 +90,15 @@ Alle Befehle beginnen mit `/scamupdates` (Alias `/scamu`) oder `/update`; beide 
 | `restore <Plugin\|all>` | `scamupdates.restore` | Rollback (Einmalcode) |
 | `backup list [Seite]` / `backup delete <Plugin\|all>` | `scamupdates.backup` / `scamupdates.backup.delete` | Backups anzeigen / löschen (Einmalcode) |
 | `restart` | `scamupdates.restart` | Neustart über Crafty oder `/restart`, mit Vorprüfung |
+| `single [check\|update <Plugin>]` | `scamupdates.update.single` | Plugin-Bibliothek öffnen oder einzelnes Plugin prüfen/updaten (Einmalcode bei Download) |
+| `queue [list\|add\|remove\|later\|dismiss\|update\|check\|download]` | `scamupdates.queue` | Update-Warteschlange öffnen, verwalten, zurückstellen, entfernen oder laden |
+| `schedule [list\|add\|toggle\|remove\|onetime\|cancel]` | `scamupdates.schedule` | Wiederkehrende Pläne & einmalige Neustarts verwalten (ohne Einmalcode) |
 | `history` | `scamupdates.history` | Protokoll (Menü bzw. letzte 10 Einträge im Chat) |
 | `config reload` | `scamupdates.config` | Config und `gui.yml` neu laden, Startprüfungen wiederholen |
 | `sources`, `exclude`/`include <Plugin>`, `pick <Plugin> <Nr>` | `scamupdates.sources` | Quellen, Ausschlüsse, Zuordnung |
 | `confirm <Code>`, `cancel [Code]`, `later` | – (code-gebunden) | Bestätigen, abbrechen, später |
 
-Weitere Permissions (für die kommenden Funktionen bereits angelegt): `scamupdates.update.plugins`, `scamupdates.update.server`, `scamupdates.update.single`, `scamupdates.queue`, `scamupdates.schedule`. `scamupdates.admin` (Standard: OP) enthält alle, `scamupdates.notify` steuert Join-Nachrichten (Updates, Fehlerzustand, fehlender Neustart-Mechanismus). Befehle und Menü verwenden dieselben Prüfungen; die Berechtigung wird beim Klick und bei der Einlösung des Codes erneut geprüft. Nur Spieler und die Konsole dürfen Befehle ausführen.
+Berechtigungen im Detail: `scamupdates.check`, `scamupdates.download`, `scamupdates.update.plugins`, `scamupdates.update.single`, `scamupdates.queue`, `scamupdates.schedule`, `scamupdates.restore`, `scamupdates.backup`, `scamupdates.backup.delete`, `scamupdates.restart`, `scamupdates.history`, `scamupdates.config`, `scamupdates.sources`, `scamupdates.update.server` (reserviert für Schritt 4). `scamupdates.admin` (Standard: OP) enthält alle; `scamupdates.notify` steuert Join- und Warteschlangen-Benachrichtigungen sowie Status-/Warnmeldungen. Befehle und Menü verwenden dieselben Prüfungen; die Berechtigung wird beim Klick und bei der Einlösung des Codes erneut geprüft. Nur Spieler und die Konsole dürfen Befehle ausführen.
 
 **Alias-Kollision `/update`:** Belegt ein anderes Plugin `/update`, behält dieses den Namen; ScamUpdates warnt im Log, der Alias ist dann als `/scamupdates:update` erreichbar.
 
@@ -135,4 +144,4 @@ Zuordnung: manuelle Config, gespeicherte Zuordnung/Ausschluss, Links in Website/
 
 ## Tests
 
-JUnit 5 (`./gradlew test`): Versionsvergleich und Minecraft-Matching, JAR-Validierung, Download-Pipeline (manipulierte/falsche JARs lassen installierte JAR und Backup unberührt), Backup/Staging, Rollback (auch im Offline-Betrieb), Bestätigungen (Spielerbindung, Ablauf, Einmaligkeit, Codelänge), Permissions und Online-/Offline-Befehlstrennung (`CommandPolicy`), Internetprüfung und Offline-Wiederherstellung (`ConnectivityGuard`), Crafty (Mock-Server) & Crafty-Isolation (`CraftyCoordinator`), Config-Migration, Plugin-Index, Zuordnung, Neustart-Vorprüfung, Warteschlangen- und Neustartzeitplan-Speicher (`UpdateQueueStore`, `RestartScheduleStore`), Kompatibilitätsstatus, Protokoll, Vorgangsverwaltung, Paper-API-Parsing, lokaler Neustart, GUI-/Config-Ressourcen. Nicht testbar ohne echten Paper-Server: Menü-Rendering, Amboss-Fenster, Optik und Live-Neustart.
+JUnit 5 (`./gradlew test`): Versionsvergleich und Minecraft-Matching, JAR-Validierung, Download-Pipeline (manipulierte/falsche JARs lassen installierte JAR und Backup unberührt), Einzelplugin-Update (`checkSingle`, `downloadSingle`, Fehlerschutz, `OperationLock`), Update-Warteschlange (`UpdateQueueStore`, `QueueService`, Persistenz, Duplikatschutz, Später/Nicht mehr erinnern, Mehrdeutigkeit/Keins davon), Backup/Staging, Rollback (auch im Offline-Betrieb), Bestätigungen (Spielerbindung, Ablauf, Einmaligkeit, Codelänge), Permissions und Online-/Offline-Befehlstrennung (`CommandPolicy`), Internetprüfung und Offline-Wiederherstellung (`ConnectivityGuard`), Crafty (Mock-Server) & Crafty-Isolation (`CraftyCoordinator`), Config-Migration, Plugin-Index, Zuordnung, Neustart-Vorprüfung, Zeitpläne & DST (`RestartScheduleStore` in `Europe/Berlin`, Konflikte, Presets, benutzerdefinierte H/M/S-Zeit, Warnzeiten & Wiederaufnahme in `RestartCoordinator`), Kompatibilitätsstatus, Protokoll, Vorgangsverwaltung, Paper-API-Parsing, lokaler Neustart, GUI-Filter/-Sortierung/-Parser und GUI-/Config-Ressourcen. Nicht testbar ohne echten Paper-Server: Live-Menü-Rendering, Amboss-Eingabe/Fenster, Optik und Live-Neustart.

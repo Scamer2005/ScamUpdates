@@ -1,6 +1,7 @@
 package de.scamupdates.update;
 
 import de.scamupdates.logging.ScamLog;
+import de.scamupdates.queue.UpdateQueueStore;
 import de.scamupdates.scan.PluginJarIndex;
 import de.scamupdates.utils.AtomicFiles;
 import de.scamupdates.utils.Hashing;
@@ -25,6 +26,10 @@ public final class PostRestartVerifier {
     public record Report(String plugin, String expectedVersion, Status status, String detail) {}
 
     public static List<Report> verify(TransactionStore store, Path pluginsDir, Path updateDir, ScamLog log) {
+        return verify(store, pluginsDir, updateDir, log, null);
+    }
+
+    public static List<Report> verify(TransactionStore store, Path pluginsDir, Path updateDir, ScamLog log, UpdateQueueStore queue) {
         List<Report> reports = new ArrayList<>();
         List<TransactionStore.Pending> pending = store.all();
         if (pending.isEmpty()) return reports;
@@ -43,6 +48,7 @@ public final class PostRestartVerifier {
                 if (installed != null && Hashing.sha256(installed).equalsIgnoreCase(p.stagedSha256())) {
                     r = new Report(p.plugin(), p.toVersion(), Status.APPLIED, "uebernommen");
                     store.remove(p.plugin());
+                    if (queue != null) queue.remove(p.plugin());
                 } else if (Files.isRegularFile(staged)) {
                     r = new Report(p.plugin(), p.toVersion(), Status.NOT_APPLIED,
                             "Datei liegt noch in plugins/update (Paper hat sie nicht uebernommen; Dateiname/Rechte pruefen)");

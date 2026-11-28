@@ -20,8 +20,10 @@ import de.scamupdates.net.HttpService;
 import de.scamupdates.net.InternetCheck;
 import de.scamupdates.net.PaperDownloads;
 import de.scamupdates.ops.OperationRegistry;
+import de.scamupdates.queue.QueueService;
 import de.scamupdates.queue.UpdateQueueStore;
 import de.scamupdates.restart.LocalRestart;
+import de.scamupdates.restart.RestartCoordinator;
 import de.scamupdates.restart.RestartScheduleStore;
 import de.scamupdates.restart.RestartService;
 import de.scamupdates.rollback.RollbackService;
@@ -72,7 +74,9 @@ public final class ScamUpdates extends JavaPlugin {
     private OperationRegistry ops;
     private HistoryStore history;
     private UpdateQueueStore queue;
+    private QueueService queueService;
     private RestartScheduleStore restartSchedule;
+    private RestartCoordinator restartCoordinator;
     private CraftyCoordinator craftyCoordinator;
     private ConnectivityGuard connectivity;
     private GuiService gui;
@@ -112,7 +116,25 @@ public final class ScamUpdates extends JavaPlugin {
         ops.markInterrupted();
         history = new HistoryStore(data.resolve("history.jsonl"), log, () -> config.historyRetentionDays(), () -> config.historyMaxEntries());
         queue = new UpdateQueueStore(data.resolve("queue.yml"), log);
+        queueService = new QueueService(queue, config, log);
         restartSchedule = new RestartScheduleStore(data.resolve("restarts.yml"), log);
+        restartCoordinator = new RestartCoordinator(restartSchedule, config, state, log);
+        restartCoordinator.setListener(new RestartCoordinator.Listener() {
+            @Override
+            public void onWarning(RestartCoordinator.ActiveCountdown countdown, int remainingSeconds) {
+                runMain(() -> notifier.broadcastRestartWarning(countdown, remainingSeconds));
+            }
+
+            @Override
+            public void onExecutionFailed(String actor, String detail) {
+                runMain(() -> notifier.broadcastRestartFailed(actor, detail));
+            }
+
+            @Override
+            public void onCancelled(RestartCoordinator.ActiveCountdown previous, String actor) {
+                runMain(() -> notifier.broadcastRestartCancelled(previous, actor));
+            }
+        });
         craftyCoordinator = new CraftyCoordinator(log);
         connectivity = new ConnectivityGuard(state,
                 () -> new InternetCheck(config.internetTargets(), Duration.ofMillis(config.internetTimeoutMs()), config.userAgent()).run(),
@@ -185,11 +207,20 @@ public final class ScamUpdates extends JavaPlugin {
             updates.setHistory(history);
             rollback.setHistory(history);
             restart.setHistory(history);
+            queueService.setHistory(history);
+            restartCoordinator.setHistory(history);
+        } else {
+            queueService.setHistory(null);
+            restartCoordinator.setHistory(null);
         }
+        restartCoordinator.setRestartService(restart);
         this.services = new Services(http, registry, matches, updates, rollback, restart);
     }
 
-    void dropServices() { this.services = null; }
+    void dropServices() {
+        this.services = null;
+        if (restartCoordinator != null) restartCoordinator.setRestartService(null);
+    }
 
     private void runMainTask(Runnable r) { runMain(r); }
 
@@ -287,7 +318,9 @@ public final class ScamUpdates extends JavaPlugin {
     public OperationRegistry ops() { return ops; }
     public HistoryStore history() { return history; }
     public UpdateQueueStore queue() { return queue; }
+    public QueueService queueService() { return queueService; }
     public RestartScheduleStore restartSchedule() { return restartSchedule; }
+    public RestartCoordinator restartCoordinator() { return restartCoordinator; }
     public CraftyCoordinator craftyCoordinator() { return craftyCoordinator; }
     public ConnectivityGuard connectivity() { return connectivity; }
     public GuiService gui() { return gui; }

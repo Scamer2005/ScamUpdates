@@ -32,6 +32,22 @@ class McVersionMatcherTest {
     }
 
     @Test
+    void supportsPaper26xExactWildcardsAndRanges() {
+        assertTrue(McVersionMatcher.matches("26.1.2", "26.1.2"));
+        assertTrue(McVersionMatcher.matches("26.1.x", "26.1.2"));
+        assertTrue(McVersionMatcher.matches("26.x", "26.2"));
+        assertTrue(McVersionMatcher.matches("26.x", "26.3"));
+        assertTrue(McVersionMatcher.matches("26.1-26.3", "26.2"));
+        assertTrue(McVersionMatcher.matches("1.21-26.3", "26.1.2"));
+        assertTrue(McVersionMatcher.anyMatches(List.of("1.21.11", "26.1.2", "26.3"), "26.3"));
+
+        assertFalse(McVersionMatcher.matches("1.20.4", "26.1.2"));
+        assertFalse(McVersionMatcher.matches("1.20-1.21.11", "26.1.2"));
+        assertFalse(McVersionMatcher.matches("26.1-26.2", "26.3"));
+        assertFalse(McVersionMatcher.matches("27.1", "26.3"));
+    }
+
+    @Test
     void nameMatcherNormalizes() {
         assertTrue(NameMatcher.same("World-Edit", "worldedit"));
         assertTrue(NameMatcher.same("LuckPerms Plugin", "LuckPerms"));

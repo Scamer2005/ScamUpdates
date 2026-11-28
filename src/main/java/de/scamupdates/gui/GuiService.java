@@ -1,10 +1,12 @@
 package de.scamupdates.gui;
 
 import de.scamupdates.ScamUpdates;
+import de.scamupdates.compat.CompatInfo;
 import de.scamupdates.compat.ServerVersion;
 import de.scamupdates.history.HistoryStore;
 import de.scamupdates.messaging.Messages;
 import de.scamupdates.net.PaperDownloads;
+import de.scamupdates.restart.RestartScheduleStore;
 import de.scamupdates.security.ConfirmationManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -27,6 +29,9 @@ public final class GuiService {
     private final MenuManager manager;
     private final InputManager input;
     private final Map<UUID, Boolean> detailed = new ConcurrentHashMap<>();
+    private final Map<UUID, PluginLibraryMenu.Filter> libraryFilters = new ConcurrentHashMap<>();
+    private final Map<UUID, PluginLibraryMenu.Sort> librarySorts = new ConcurrentHashMap<>();
+    private final Map<UUID, String> libraryQueries = new ConcurrentHashMap<>();
 
     public GuiService(ScamUpdates plugin) {
         this.plugin = plugin;
@@ -58,6 +63,22 @@ public final class GuiService {
 
     public void openHistory(Player p) { new HistoryMenu(this, p, HistoryStore.Sort.NEWEST).open(); }
 
+    public void openLibrary(Player p) { new PluginLibraryMenu(this, p).open(); }
+
+    public void openDetail(Player p, String pluginName) { new PluginDetailMenu(this, p, pluginName).open(); }
+
+    public void openMatchChoice(Player p, String pluginName, Runnable onBack) { new MatchChoiceMenu(this, p, pluginName, onBack).open(); }
+
+    public void openQueue(Player p) { new QueueMenu(this, p).open(); }
+
+    public void openQueueEntry(Player p, String pluginName) { new QueueEntryMenu(this, p, pluginName).open(); }
+
+    public void openSchedules(Player p) { new ScheduledRestartsMenu(this, p).open(); }
+
+    public void openScheduleEdit(Player p, RestartScheduleStore.ScheduleRule rule) { new ScheduleEditorMenu(this, p, rule).open(); }
+
+    public void openOneTime(Player p) { new OneTimeRestartMenu(this, p).open(); }
+
     public void ask(Player p, TextPrompt prompt) { input.ask(p, prompt); }
 
     /** Vor jedem Klick: Plugin muss betriebsbereit sein, Doppelklicks werden gedrosselt. */
@@ -73,6 +94,33 @@ public final class GuiService {
     boolean detailed(Player p) { return detailed.getOrDefault(p.getUniqueId(), false); }
 
     void setDetailed(Player p, boolean d) { detailed.put(p.getUniqueId(), d); }
+
+    PluginLibraryMenu.Filter libraryFilter(Player p) {
+        return libraryFilters.getOrDefault(p.getUniqueId(), PluginLibraryMenu.Filter.ALL);
+    }
+
+    void setLibraryFilter(Player p, PluginLibraryMenu.Filter f) { libraryFilters.put(p.getUniqueId(), f); }
+
+    PluginLibraryMenu.Sort librarySort(Player p) {
+        return librarySorts.getOrDefault(p.getUniqueId(), PluginLibraryMenu.Sort.NAME);
+    }
+
+    void setLibrarySort(Player p, PluginLibraryMenu.Sort s) { librarySorts.put(p.getUniqueId(), s); }
+
+    String libraryQuery(Player p) { return libraryQueries.getOrDefault(p.getUniqueId(), ""); }
+
+    void setLibraryQuery(Player p, String q) {
+        if (q == null || q.isBlank()) libraryQueries.remove(p.getUniqueId());
+        else libraryQueries.put(p.getUniqueId(), q.trim());
+    }
+
+    TextPrompt simplePrompt(String label, String initial,
+                            java.util.function.Function<String, Optional<Component>> validator,
+                            java.util.function.Consumer<String> onSubmit,
+                            Runnable onCancel) {
+        List<Component> lore = config.lore("items.text-paper.lore", ph("initial", initial));
+        return new TextPrompt(label, initial, lore, validator, onSubmit, onCancel, 0, onCancel);
+    }
 
     // -------------------------------------------------------- Code-Bestaetigung
 
@@ -112,12 +160,16 @@ public final class GuiService {
 
     /** Kurzer Hinweis zur Paper-Pruefung. Neuere Minecraft-Versionen ausserhalb des Supportbereichs werden nicht beworben. */
     String paperHint(PaperDownloads.PaperStatus ps) {
+        return formatPaperHint(ps);
+    }
+
+    static String formatPaperHint(PaperDownloads.PaperStatus ps) {
         if (ps == null) return "noch nicht geprueft";
         if (ps.failed()) return "Pruefung fehlgeschlagen: " + ps.error();
         if (ps.newerBuildAvailable()) return "Neuerer Build verfuegbar";
         String hint = "Paper ist aktuell";
         boolean supportedNewer = ps.newerMinecraftAvailable()
-                && ServerVersion.parse(ps.newestMinecraft()).map(v -> !v.isNewerThan("1.21.999")).orElse(false);
+                && ServerVersion.parse(ps.newestMinecraft()).map(CompatInfo::isSupportedVersion).orElse(false);
         return supportedNewer ? hint + "; neuere Minecraft-Version " + ps.newestMinecraft() + " verfuegbar" : hint;
     }
 

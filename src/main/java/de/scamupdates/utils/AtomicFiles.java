@@ -22,10 +22,16 @@ public final class AtomicFiles {
 
     public static void writeString(Path target, String content) throws IOException {
         Path abs = target.toAbsolutePath();
-        Files.createDirectories(abs.getParent());
-        Path tmp = abs.resolveSibling(abs.getFileName() + ".tmp");
-        Files.writeString(tmp, content, StandardCharsets.UTF_8);
-        moveReplace(tmp, abs);
+        Path parent = abs.getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Path tmp = Files.createTempFile(parent, abs.getFileName() + ".", ".tmp");
+        try {
+            Files.writeString(tmp, content, StandardCharsets.UTF_8);
+            moveReplace(tmp, abs);
+        } catch (IOException | RuntimeException e) {
+            deleteQuietly(tmp);
+            throw e;
+        }
     }
 
     /** Loest einen Dateinamen sicher innerhalb von base auf (Schutz vor Path Traversal). */

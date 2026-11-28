@@ -72,5 +72,12 @@ class JarValidatorTest {
         assertDoesNotThrow(() -> JarValidator.validate(ok, "Foo", "1.21.11"));
         Path legacy = TestJars.plugin(dir.resolve("legacy.jar"), "Foo", "2.0", null, "x");
         assertDoesNotThrow(() -> JarValidator.validate(legacy, "Foo", "1.21.11"));
+        assertFalse(JarValidator.apiNewerThanServer("1.20", "1.20.0"));
+        assertFalse(JarValidator.apiNewerThanServer("1.20", "1.20.4"));
+        assertTrue(JarValidator.apiNewerThanServer("1.20.6", "1.20.4"));
+        assertTrue(JarValidator.apiNewerThanServer("1.20.6", "1.20.0"));
+        assertTrue(JarValidator.apiNewerThanServer("1.21.11", "1.21.4"));
+        assertFalse(JarValidator.apiNewerThanServer("26.1", "26.1.2"));
+        assertTrue(JarValidator.apiNewerThanServer("26.2", "26.1.2"));
     }
 }

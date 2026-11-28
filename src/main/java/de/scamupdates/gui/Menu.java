@@ -67,6 +67,10 @@ public abstract class Menu implements InventoryHolder {
 
     final Inventory inventory() { return inventory; }
 
+    protected final boolean isViewing() {
+        return viewer != null && gui.manager().isOpen(viewer, this);
+    }
+
     protected final void set(int slot, Button b) {
         if (slot < 0 || slot >= rows() * 9) return;
         buttons.put(slot, b);

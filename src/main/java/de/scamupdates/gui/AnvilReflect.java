@@ -10,6 +10,7 @@ final class AnvilReflect {
     private AnvilReflect() {}
 
     private static boolean resolved;
+    private static Method getViewMethod;
     private static Method viewMethod;
     private static Method inventoryMethod;
 
@@ -17,8 +18,11 @@ final class AnvilReflect {
         if (resolved) return;
         resolved = true;
         try {
-            viewMethod = Class.forName("org.bukkit.inventory.view.AnvilView").getMethod("getRenameText");
+            Class<?> anvilView = Class.forName("org.bukkit.inventory.view.AnvilView");
+            getViewMethod = PrepareAnvilEvent.class.getMethod("getView");
+            viewMethod = anvilView.getMethod("getRenameText");
         } catch (ReflectiveOperationException | LinkageError e) {
+            getViewMethod = null;
             viewMethod = null;
         }
         try {
@@ -31,10 +35,13 @@ final class AnvilReflect {
     /** @return der Text, oder null, wenn noch nichts umbenannt wurde bzw. nicht lesbar */
     static String renameText(PrepareAnvilEvent e) {
         resolve();
-        if (viewMethod != null) {
+        if (viewMethod != null && getViewMethod != null) {
             try {
-                Object r = viewMethod.invoke(e.getView());
-                return r == null ? null : r.toString();
+                Object view = getViewMethod.invoke(e);
+                if (view != null) {
+                    Object r = viewMethod.invoke(view);
+                    return r == null ? null : r.toString();
+                }
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ex) {
                 // weiter mit Fallback
             }

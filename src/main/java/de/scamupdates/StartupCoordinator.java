@@ -26,6 +26,7 @@ public final class StartupCoordinator {
     private final ScamUpdates plugin;
     private final AtomicInteger generation = new AtomicInteger();
     private volatile BukkitTask periodic;
+    private volatile BukkitTask restartTicker;
 
     public StartupCoordinator(ScamUpdates plugin) { this.plugin = plugin; }
 
@@ -58,7 +59,13 @@ public final class StartupCoordinator {
         plugin.buildServices();
         plugin.state().set(PluginState.ACTIVE_OFFLINE, List.of("Netzwerkpruefung laeuft ..."));
         plugin.updates().cleanTmp();
-        if (firstRun) verifyPostRestart();
+        if (firstRun) {
+            verifyPostRestart();
+            if (plugin.queue() != null) plugin.queue().resetAmbiguousNotifications();
+            if (config.restartsEnabled()) plugin.restartCoordinator().reconcileOnStartup(System.currentTimeMillis());
+        } else if (plugin.restartCoordinator() != null) {
+            plugin.restartCoordinator().onConfigReloaded(System.currentTimeMillis());
+        }
         if (config.historyEnabled()) plugin.history().prune(System.currentTimeMillis());
         if (!cc.enabled()) plugin.evaluateLocalRestart();
         plugin.log().info("Kernfunktionen aktiv. Pruefe Internetverbindung" + (cc.enabled() ? " und Crafty ..." : " (Crafty deaktiviert)."));
@@ -72,7 +79,7 @@ public final class StartupCoordinator {
 
     private void verifyPostRestart() {
         List<PostRestartVerifier.Report> reports = PostRestartVerifier.verify(plugin.transactions(),
-                plugin.pluginsDir(), plugin.updateDir(), plugin.log());
+                plugin.pluginsDir(), plugin.updateDir(), plugin.log(), plugin.queue());
         if (!reports.isEmpty()) {
             long ok = reports.stream().filter(x -> x.status() == PostRestartVerifier.Status.APPLIED).count();
             plugin.setPostRestartSummary(ok + "/" + reports.size() + " uebernommen");
@@ -112,8 +119,16 @@ public final class StartupCoordinator {
                     }
                 }
                 schedulePeriodic();
+                scheduleRestartTicker();
                 if (firstRun) schedulePrune();
-                if (plugin.config().checkOnStart() && plugin.state().isOnline()) runAutoCheck();
+                if (plugin.state().isOnline()) {
+                    if (plugin.config().checkOnStart()) {
+                        runAutoCheck();
+                    } else if (!plugin.queue().all().isEmpty()) {
+                        List<String> queued = plugin.queue().all().stream().map(e -> e.plugin()).toList();
+                        recheckQueuedAtStartup(queued, 0, gen);
+                    }
+                }
             });
         } catch (Throwable t) {
             plugin.log().error("Unerwarteter Fehler bei den asynchronen Startpruefungen (lokale Funktionen bleiben aktiv)", t);
@@ -128,6 +143,22 @@ public final class StartupCoordinator {
                 return;
             }
             plugin.notifier().broadcastToOnlineAdmins();
+            plugin.notifier().broadcastQueueNotifications();
+        }));
+    }
+
+    private void recheckQueuedAtStartup(List<String> queuedPlugins, int idx, int gen) {
+        if (gen != generation.get() || !plugin.state().isOnline() || plugin.updates() == null) return;
+        if (idx >= queuedPlugins.size()) {
+            plugin.notifier().broadcastQueueNotifications();
+            return;
+        }
+        String name = queuedPlugins.get(idx);
+        plugin.updates().checkSingle(name, "queue-startup").whenComplete((st, err) -> plugin.runMain(() -> {
+            if (err != null) {
+                plugin.log().debug("Warteschlangen-Startpruefung fuer " + name + " uebersprungen: " + err.getMessage());
+            }
+            recheckQueuedAtStartup(queuedPlugins, idx + 1, gen);
         }));
     }
 
@@ -158,10 +189,22 @@ public final class StartupCoordinator {
         });
     }
 
+    private void scheduleRestartTicker() {
+        if (!plugin.config().restartsEnabled()) return;
+        restartTicker = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            if (plugin.state().isOperational() && plugin.config().restartsEnabled()) {
+                plugin.restartCoordinator().tick(System.currentTimeMillis());
+            }
+        }, 20L, 20L);
+    }
+
     void stopScheduled() {
         BukkitTask t = periodic;
         if (t != null) t.cancel();
         periodic = null;
+        BukkitTask rt = restartTicker;
+        if (rt != null) rt.cancel();
+        restartTicker = null;
     }
 
     private void fail(PluginState s, List<String> details, int gen) {

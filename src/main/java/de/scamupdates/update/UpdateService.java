@@ -255,6 +255,92 @@ public final class UpdateService {
         return result;
     }
 
+    /** Prueft gezielt ein einzelnes installiertes Plugin und aktualisiert seinen Eintrag im Snapshot. */
+    public CompletableFuture<PluginStatus> checkSingle(String pluginName, String actor) {
+        CompletableFuture<PluginStatus> result = new CompletableFuture<>();
+        try {
+            state.requireActive();
+        } catch (IllegalStateException e) {
+            result.completeExceptionally(e);
+            return result;
+        }
+        Optional<OperationLock.Handle> handle = lock.tryAcquire("single-check");
+        if (handle.isEmpty()) {
+            result.completeExceptionally(new BusyException(lock.holder()));
+            return result;
+        }
+        List<PluginInfo> metas = pluginCollector.get();
+        try {
+            io.submit(() -> {
+                Operation op = null;
+                try (OperationLock.Handle h = handle.get()) {
+                    if (!state.isOnline() && connectivity != null) connectivity.ensureOnlineOrRefresh();
+                    state.requireOnline();
+
+                    List<PluginInfo> plugins = PluginJarIndex.attach(metas, pluginsDir);
+                    PluginInfo target = plugins.stream()
+                            .filter(p -> p.name().equalsIgnoreCase(pluginName))
+                            .findFirst()
+                            .orElse(null);
+                    if (target == null) {
+                        result.completeExceptionally(new IllegalArgumentException("Plugin nicht gefunden: " + pluginName));
+                        return;
+                    }
+                    op = ops.begin(OpType.CHECK, target.name(), actor).orElse(null);
+                    PluginStatus st;
+                    if (transactions.get(target.name()).isPresent()) {
+                        st = new PluginStatus(target, Kind.PENDING_RESTART, null, null, null);
+                    } else {
+                        try {
+                            st = checkOne(target, mcVersion.get());
+                        } catch (IOException e) {
+                            st = new PluginStatus(target, Kind.ERROR, null, null, log.redact(String.valueOf(e.getMessage())));
+                        }
+                    }
+                    replaceSnapshotEntry(st);
+                    String summary = target.name() + ": " + st.kind()
+                            + (st.release() == null ? "" : " (" + st.release().version() + ")");
+                    if (op != null) ops.finish(op, st.kind() == Kind.ERROR ? OpStatus.FAILED : OpStatus.SUCCEEDED, summary);
+                    record(HistoryEntry.of("single-check", st.kind() == Kind.ERROR ? "WARN" : "INFO", actor, summary));
+                    result.complete(st);
+                } catch (StateManager.OfflineException e) {
+                    log.warn("Einzelpruefung blockiert (offline): " + e.getMessage());
+                    result.completeExceptionally(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    if (op != null) ops.finish(op, OpStatus.CANCELLED, "unterbrochen");
+                    result.completeExceptionally(e);
+                } catch (Throwable t) {
+                    log.error("Einzelpruefung fehlgeschlagen fuer " + pluginName, t);
+                    if (op != null) ops.finish(op, OpStatus.FAILED, log.redact(String.valueOf(t.getMessage())));
+                    record(HistoryEntry.of("single-check", "FAILED", actor, pluginName + ": " + log.redact(String.valueOf(t.getMessage()))));
+                    result.completeExceptionally(t);
+                }
+            });
+        } catch (RuntimeException e) {
+            handle.get().close();
+            result.completeExceptionally(e);
+        }
+        return result;
+    }
+
+    private synchronized void replaceSnapshotEntry(PluginStatus st) {
+        Snapshot old = snapshot;
+        List<PluginStatus> next = new ArrayList<>();
+        boolean replaced = false;
+        for (PluginStatus cur : old.statuses()) {
+            if (cur.plugin().name().equalsIgnoreCase(st.plugin().name())) {
+                next.add(st);
+                replaced = true;
+            } else {
+                next.add(cur);
+            }
+        }
+        if (!replaced) next.add(st);
+        long t = old.time() > 0 ? old.time() : System.currentTimeMillis();
+        snapshot = new Snapshot(t, next);
+    }
+
     private Snapshot runCheck(List<PluginInfo> metas, Operation op) throws InterruptedException, IOException {
         state.requireOnline();
         List<PluginInfo> plugins = PluginJarIndex.attach(metas, pluginsDir);
@@ -343,8 +429,17 @@ public final class UpdateService {
             f.complete(new DownloadReport(List.of(), false));
             return f;
         }
-        return downloadInternal(List.of(candidate.get()), progress, actor, OpType.SINGLE_UPDATE,
-                candidate.get().plugin().name(), "single-update");
+        return downloadSingle(candidate.get(), progress, actor);
+    }
+
+    public CompletableFuture<DownloadReport> downloadSingle(UpdateCandidate candidate, Consumer<Item> progress, String actor) {
+        if (candidate == null) {
+            CompletableFuture<DownloadReport> f = new CompletableFuture<>();
+            f.complete(new DownloadReport(List.of(), false));
+            return f;
+        }
+        return downloadInternal(List.of(candidate), progress, actor, OpType.SINGLE_UPDATE,
+                candidate.plugin().name(), "single-update");
     }
 
     private CompletableFuture<DownloadReport> downloadInternal(List<UpdateCandidate> candidates, Consumer<Item> progress,
@@ -370,9 +465,11 @@ public final class UpdateService {
 
                     op = ops.begin(opType, opKey, actor);
                     DownloadReport report = runDownload(candidates, progress, op.orElse(null));
-                    if (queue != null && !report.abortedAllOrNothing()) {
+                    if (!report.abortedAllOrNothing()) {
                         List<String> okNames = report.items().stream().filter(Item::ok).map(Item::plugin).toList();
-                        if (!okNames.isEmpty()) queue.removeAll(okNames);
+                        if (!okNames.isEmpty()) {
+                            markPending(okNames);
+                        }
                     }
                     boolean noRestart = report.okCount() > 0 && !restartAvailable.getAsBoolean();
                     String result0 = report.okCount() == 0 ? "FAILED" : (report.failedCount() > 0 || noRestart || report.abortedAllOrNothing() ? "WARN" : "OK");
@@ -469,6 +566,7 @@ public final class UpdateService {
                 Stager.Result sr = stager.stage(c.plugin().name(), c.fromVersion(), c.plugin().jarPath(), p.tmp());
                 transactions.put(new TransactionStore.Pending(c.plugin().name(), TransactionStore.Kind.UPDATE,
                         c.fromVersion(), c.toVersion(), sr.stagedFile().getFileName().toString(), sr.sha256(), System.currentTimeMillis()));
+                if (queue != null) queue.remove(c.plugin().name());
                 item = new Item(c.plugin().name(), c.fromVersion(), c.toVersion(), true, null);
                 log.info("Update vorgemerkt: " + c.plugin().name() + " " + c.fromVersion() + " -> " + c.toVersion());
             } catch (IOException e) {
@@ -485,12 +583,41 @@ public final class UpdateService {
     }
 
     /** Markiert erfolgreich vorgemerkte Plugins im aktuellen Snapshot als "Neustart noetig". */
-    public void markPending(java.util.Collection<String> pluginNames) {
+    public synchronized void markPending(java.util.Collection<String> pluginNames) {
         Snapshot old = snapshot;
         List<PluginStatus> updated = new ArrayList<>();
         for (PluginStatus st : old.statuses()) {
             boolean hit = pluginNames.stream().anyMatch(n -> n.equalsIgnoreCase(st.plugin().name()));
             updated.add(hit ? new PluginStatus(st.plugin(), Kind.PENDING_RESTART, st.project(), st.release(), null) : st);
+        }
+        snapshot = new Snapshot(old.time(), updated);
+    }
+
+    /** Markiert ein Plugin im aktuellen Snapshot als ausgeschlossen (z. B. nach "Keins davon"). */
+    public synchronized void markExcluded(String pluginName) {
+        if (pluginName == null || pluginName.isBlank()) return;
+        Snapshot old = snapshot;
+        List<PluginStatus> updated = new ArrayList<>();
+        for (PluginStatus st : old.statuses()) {
+            if (st.plugin().name().equalsIgnoreCase(pluginName.trim())) {
+                updated.add(new PluginStatus(st.plugin(), Kind.EXCLUDED, null, null, null));
+            } else {
+                updated.add(st);
+            }
+        }
+        snapshot = new Snapshot(old.time(), updated);
+    }
+
+    /** Entfernt einen veralteten PENDING_MATCH-Eintrag aus dem Snapshot nach manueller Zuordnung. */
+    public synchronized void clearPendingMatch(String pluginName) {
+        if (pluginName == null || pluginName.isBlank()) return;
+        Snapshot old = snapshot;
+        List<PluginStatus> updated = new ArrayList<>();
+        for (PluginStatus st : old.statuses()) {
+            if (st.plugin().name().equalsIgnoreCase(pluginName.trim()) && st.kind() == Kind.PENDING_MATCH) {
+                continue;
+            }
+            updated.add(st);
         }
         snapshot = new Snapshot(old.time(), updated);
     }

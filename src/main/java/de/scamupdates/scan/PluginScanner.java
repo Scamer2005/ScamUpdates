@@ -40,6 +40,15 @@ public final class PluginScanner {
         return list;
     }
 
+    /** Liest die installierte Version eines Plugins versionssicher ueber Modern/LegacyMetaReader. */
+    public static java.util.Optional<String> installedVersion(String pluginName) {
+        if (pluginName == null || pluginName.isBlank()) return java.util.Optional.empty();
+        Plugin p = Bukkit.getPluginManager().getPlugin(pluginName);
+        if (p == null) return java.util.Optional.empty();
+        String v = reader().read(p).version();
+        return v == null || v.isBlank() ? java.util.Optional.empty() : java.util.Optional.of(v);
+    }
+
     private static Path codeSource(Plugin plugin) {
         try {
             CodeSource cs = plugin.getClass().getProtectionDomain().getCodeSource();

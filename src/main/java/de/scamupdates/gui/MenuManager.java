@@ -54,6 +54,10 @@ final class MenuManager implements Listener {
         p.openInventory(inventory);
     }
 
+    boolean isOpen(Player p, Menu menu) {
+        return p != null && menu != null && p.isOnline() && open.get(p.getUniqueId()) == menu;
+    }
+
     boolean cooldownOk(UUID id) {
         long now = System.currentTimeMillis();
         Long last = lastClick.get(id);

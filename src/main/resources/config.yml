@@ -2,7 +2,7 @@
 # Fehlende Schluessel werden bei Updates ergaenzt; vorher entsteht config.yml.bak-v<alte Version>.
 config-version: 2
 
-# Vom Betreiber getestete Minecraft-Versionen, z. B. ["1.21.11"]. Nur diese gelten als "getestet".
+# Vom Betreiber getestete Minecraft-Versionen, z. B. ["1.20.4", "1.21.11", "26.1.2", "26.2", "26.3"]. Nur diese gelten als "getestet".
 compat:
   tested-versions: []
 
@@ -122,12 +122,23 @@ sources:
 #   MeinPlugin: {source: modrinth, project-id: "slug", channel: stable}
 plugins: {}
 
+queue:
+  snooze-minutes: 60 # Pausenzeit bei "Spaeter" in Minuten
+  notify-on-join: true
+
+restarts:
+  enabled: true
+  timezone: "Europe/Berlin"
+  warning-seconds: [300, 180, 60, 30, 10, 5, 4, 3, 2, 1]
+
 sounds:
   # Format "sound.key;lautstaerke;tonhoehe", leer = kein Ton.
   notify: "entity.experience_orb.pickup;1.0;1.0"
   success: "entity.player.levelup;0.7;1.2"
   error: "block.note_block.bass;1.0;0.6"
   confirm: "block.note_block.pling;1.0;1.4"
+  restart-warning: "block.note_block.pling;1.0;1.0"
+  restart-countdown: "block.note_block.hat;1.0;1.2"
 
 buttons:
   show-updates:
@@ -160,6 +171,18 @@ buttons:
   next:
     text: "<yellow>[»]</yellow>"
     hover: "<gray>Naechste Seite"
+  queue-update-now:
+    text: "<green>[Jetzt aktualisieren]</green>"
+    hover: "<gray>Startet den Update-Vorgang fuer dieses Plugin (mit Bestaetigung)"
+  queue-later:
+    text: "<gray>[Spaeter]</gray>"
+    hover: "<gray>Eintrag bleibt erhalten und erinnert spaeter erneut"
+  queue-dismiss:
+    text: "<red>[Nicht mehr erinnern]</red>"
+    hover: "<gray>Entfernt diesen Eintrag dauerhaft aus der Warteschlange"
+  queue-choose:
+    text: "<yellow>[Kandidaten waehlen]</yellow>"
+    hover: "<gray>Zwischen mehreren gefundenen Projekten waehlen"
 
 # Nachrichten (MiniMessage). Listen sind mehrzeilig; <prefix> und Platzhalter sind je Nachricht gesetzt.
 messages:
@@ -184,6 +207,9 @@ messages:
     - "<yellow>/scamupdates match [Plugin] <gray>- Offene Zuordnungen"
     - "<yellow>/scamupdates exclude|include [Plugin] <gray>- Plugin ausschliessen/einbeziehen"
     - "<yellow>/scamupdates config reload <gray>- Config neu laden"
+    - "<yellow>/scamupdates single check|update <Plugin> <gray>- Einzelplugin verwalten"
+    - "<yellow>/scamupdates queue [add|remove|later|dismiss|check|download] [Plugin] <gray>- Update-Warteschlange"
+    - "<yellow>/scamupdates schedule [list|add|toggle|remove|onetime|cancel] <gray>- Geplante & einmalige Neustarts"
     - "<yellow>/scamupdates confirm [Token] | cancel <gray>- Bestaetigungen"
 
   error:
@@ -312,6 +338,9 @@ messages:
     later: "<prefix><gray>Kein Neustart. Spaeter: /scamupdates restart"
     disabled: "<prefix><red>Neustart ueber ScamUpdates ist in der Config deaktiviert (crafty.restart.enabled)."
     no-pending: "<prefix><red>Neustart nicht erlaubt: keine vorgemerkten Updates (crafty.restart.require-pending-updates)."
+    warning: "<prefix><gold><bold>Serverneustart in <white><time></white><gold>! <gray>(<reason>)"
+    countdown-cancelled: "<prefix><yellow>Der geplante Serverneustart wurde von <white><actor></white> abgebrochen."
+    scheduled-failed: "<prefix><red>Geplanter/einmaliger Neustart konnte nicht ausgefuehrt werden: <reason>"
 
   restore:
     none-available: "<prefix><gray>Keine Backups vorhanden."
@@ -368,3 +397,40 @@ messages:
     header: "<prefix><gold>Update-Protokoll <gray>(letzte <count> Eintraege)"
     entry: "<gray><time> <dark_gray>| <white><action> <dark_gray>| <result> <dark_gray>| <gray><actor> <dark_gray>- <gray><message>"
     empty: "<prefix><gray>Das Protokoll ist leer."
+
+  queue:
+    added: "<prefix><green><white><plugin></white> zur Update-Warteschlange hinzugefuegt."
+    already: "<prefix><gray><white><plugin></white> ist bereits in der Update-Warteschlange."
+    removed: "<prefix><gray><white><plugin></white> aus der Update-Warteschlange entfernt."
+    snoozed: "<prefix><gray>Erinnerung fuer <white><plugin></white> auf spaeter verschoben."
+    dismissed: "<prefix><gray><white><plugin></white> dauerhaft aus der Warteschlange entfernt ('Nicht mehr erinnern')."
+    empty: "<prefix><gray>Die Update-Warteschlange ist leer."
+    header: "<prefix><gold>Update-Warteschlange <gray>(<count> Eintraege)"
+    entry: "<gray>- <white><plugin> <dark_gray>[<state>] <gray><detail>"
+    notify-ready: "<prefix><gold>Warteschlange: <yellow>Update fuer <white><plugin></white> (<gray><from> -> <green><to><yellow>) ist jetzt verfuegbar!"
+    notify-ambiguous: "<prefix><gold>Warteschlange: <yellow>Mehrere Kandidaten fuer <white><plugin></white> (<count>) gefunden - Auswahl erforderlich."
+
+  single:
+    checking: "<prefix><gray>Pruefe <white><plugin></white> ..."
+    up-to-date: "<prefix><green><white><plugin></white> (<version>) ist aktuell."
+    update-available: "<prefix><yellow>Update fuer <white><plugin></white>: <gray><from> -> <green><to> <dark_gray>(<source>)"
+    no-direct-download: "<prefix><gold>Update fuer <white><plugin></white> hat keinen Direktdownload: <white><url>"
+    no-update: "<prefix><gray>Fuer <white><plugin></white> ist aktuell kein herunterladbares Update verfuegbar (<status>)."
+    excluded: "<prefix><gray><white><plugin></white> ist von Updates ausgeschlossen."
+    pending-match: "<prefix><yellow>Fuer <white><plugin></white> stehen mehrere Treffer zur Auswahl. Nutze /scamupdates match <plugin>."
+
+  schedule:
+    disabled: "<prefix><red>Geplante und einmalige Neustarts sind in der Config deaktiviert (restarts.enabled)."
+    header: "<prefix><gold>Geplante Neustarts <gray>(Zeitzone <zone>)"
+    empty: "<prefix><gray>Keine wiederkehrenden Neustart-Plaene vorhanden."
+    rule: "<gray>- <white><id> <dark_gray>| <yellow><freq> <white><time> <dark_gray>[<state>] <gray><label> <dark_gray>(naechster: <next>)"
+    added: "<prefix><green>Neustart-Plan <white><id></white> gespeichert (<freq> <time>, <zone>)."
+    removed: "<prefix><gray>Neustart-Plan <white><id></white> geloescht."
+    toggled: "<prefix><gray>Neustart-Plan <white><id></white> ist jetzt <white><state></white>."
+    not-found: "<prefix><red>Neustart-Plan <white><id></white> nicht gefunden."
+    conflict: "<prefix><red>Zeitplan-Konflikt: <reason>"
+    invalid-time: "<prefix><red>Ungueltige Uhrzeit oder Parameter. Beispiel: /scamupdates schedule add DAILY 04:00 Nachtneustart"
+    onetime-scheduled: "<prefix><gold>Einmaliger Neustart geplant: in <white><duration></white> (um <white><at></white> <zone>)."
+    onetime-cancelled: "<prefix><gray>Laufender Neustart-Countdown wurde abgebrochen."
+    onetime-none: "<prefix><gray>Aktuell ist kein Neustart-Countdown aktiv."
+    onetime-active: "<prefix><gold>Aktiver Neustart-Countdown: <white><remaining></white> (um <white><at></white>, <reason>)."

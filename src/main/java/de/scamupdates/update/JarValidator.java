@@ -1,5 +1,6 @@
 package de.scamupdates.update;
 
+import de.scamupdates.compat.ServerVersion;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -86,6 +87,11 @@ public final class JarValidator {
     }
 
     static boolean apiNewerThanServer(String api, String server) {
+        var av = ServerVersion.parse(api);
+        var sv = ServerVersion.parse(server);
+        if (av.isPresent() && sv.isPresent()) {
+            return av.get().compareTo(sv.get()) > 0;
+        }
         int[] a = majorMinor(api), s = majorMinor(server);
         if (a == null || s == null) return false;
         return a[0] > s[0] || (a[0] == s[0] && a[1] > s[1]);

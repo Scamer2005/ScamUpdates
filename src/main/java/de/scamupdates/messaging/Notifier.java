@@ -3,6 +3,8 @@ package de.scamupdates.messaging;
 import de.scamupdates.ScamUpdates;
 import de.scamupdates.config.ConfigManager;
 import de.scamupdates.logging.ScamLog;
+import de.scamupdates.queue.QueueService;
+import de.scamupdates.restart.RestartCoordinator;
 import de.scamupdates.security.Perm;
 import de.scamupdates.state.PluginState;
 import de.scamupdates.state.StateManager;
@@ -17,14 +19,17 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +45,8 @@ public final class Notifier {
     private final ScamLog log;
     private final Path file;
     private final Map<UUID, Seen> seen = new HashMap<>();
+    private final Object writeLock = new Object();
+    private long writeSeq;
     private boolean loaded;
 
     public Notifier(ScamUpdates plugin, ConfigManager config, Messages messages, StateManager state, ScamLog log, Path file) {
@@ -83,6 +90,7 @@ public final class Notifier {
         }
         if (!state.isOnline() || !config.notificationsEnabled()) return;
         notifyIfNeeded(p);
+        if (config.queueNotifyOnJoin()) notifyQueueOnJoin(p);
     }
 
     /** Hauptthread: nach einer automatischen Pruefung alle online Admins informieren (jeweils hoechstens einmal). */
@@ -90,6 +98,104 @@ public final class Notifier {
         if (!state.isOnline() || !config.notificationsEnabled() || plugin.updates() == null) return;
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (Perm.NOTIFY.allows(n -> p.hasPermission(n))) notifyIfNeeded(p);
+        }
+    }
+
+    /** Baut eine klickbare Warteschlangen-Benachrichtigung mit Jetzt aktualisieren / Spaeter / Nicht mehr erinnern. */
+    public Component queueMessage(QueueService.EvaluatedEntry ev) {
+        String name = ev.entry().plugin();
+        if (ev.state() == QueueService.EntryState.AMBIGUOUS) {
+            return Component.join(JoinConfiguration.newlines(),
+                    messages.render("queue.notify-ambiguous", Messages.ph("plugin", name), Messages.ph("count", ev.candidates().size())),
+                    messages.row(
+                            messages.button("queue-choose", "/scamupdates match " + name),
+                            messages.button("pick-none", "/scamupdates pick " + name + " 0"),
+                            messages.button("queue-later", "/scamupdates queue later " + name),
+                            messages.button("queue-dismiss", "/scamupdates queue dismiss " + name)));
+        }
+        String from = ev.candidate() != null ? ev.candidate().fromVersion() : ev.entry().installedVersion();
+        String to = ev.candidate() != null ? ev.candidate().toVersion() : ev.entry().targetVersion();
+        return Component.join(JoinConfiguration.newlines(),
+                messages.render("queue.notify-ready", Messages.ph("plugin", name), Messages.ph("from", from), Messages.ph("to", to)),
+                messages.row(
+                        messages.button("queue-update-now", "/scamupdates queue update " + name),
+                        messages.button("queue-later", "/scamupdates queue later " + name),
+                        messages.button("queue-dismiss", "/scamupdates queue dismiss " + name)));
+    }
+
+    /** Hauptthread: prueft neu verfuegbare Warteschlangen-Updates und benachrichtigt berechtigte Admins. */
+    public void broadcastQueueNotifications() {
+        if (!state.isOnline() || !config.notificationsEnabled() || plugin.updates() == null || plugin.queueService() == null) return;
+        Set<String> installed = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(Plugin::getName).collect(Collectors.toSet());
+        List<QueueService.EvaluatedEntry> pending = plugin.queueService().pendingNotifications(
+                plugin.updates().snapshot(), plugin.matches(), installed, System.currentTimeMillis());
+        if (pending.isEmpty()) return;
+        List<Player> admins = new ArrayList<>();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (Perm.NOTIFY.allows(n -> p.hasPermission(n)) || Perm.QUEUE.allows(n -> p.hasPermission(n))) admins.add(p);
+        }
+        for (QueueService.EvaluatedEntry ev : pending) {
+            Component c = queueMessage(ev);
+            Bukkit.getConsoleSender().sendMessage(c);
+            for (Player p : admins) {
+                p.sendMessage(c);
+                messages.playSound(p, "notify");
+            }
+            if (!admins.isEmpty()) {
+                plugin.queueService().markNotified(ev);
+            }
+        }
+    }
+
+    private void notifyQueueOnJoin(Player p) {
+        if (plugin.queueService() == null || plugin.updates() == null) return;
+        Set<String> installed = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(Plugin::getName).collect(Collectors.toSet());
+        long now = System.currentTimeMillis();
+        List<QueueService.EvaluatedEntry> list = plugin.queueService().evaluate(plugin.updates().snapshot(), plugin.matches(), installed, now);
+        boolean sent = false;
+        for (QueueService.EvaluatedEntry ev : list) {
+            if (ev.entry().snoozedUntil() > now) continue;
+            if (ev.state() == QueueService.EntryState.READY || ev.state() == QueueService.EntryState.AMBIGUOUS) {
+                p.sendMessage(queueMessage(ev));
+                plugin.queueService().markNotified(ev);
+                sent = true;
+            }
+        }
+        if (sent) messages.playSound(p, "notify");
+    }
+
+    public void broadcastRestartWarning(RestartCoordinator.ActiveCountdown countdown, int remainingSeconds) {
+        String reason = countdown == null || countdown.reason().isBlank() ? "Serverneustart" : countdown.reason();
+        Component msg = messages.render("restart.warning",
+                Messages.ph("time", RestartCoordinator.formatDuration(remainingSeconds)),
+                Messages.ph("reason", reason));
+        Bukkit.getConsoleSender().sendMessage(msg);
+        String soundKey = remainingSeconds <= 10 ? "restart-countdown" : "restart-warning";
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(msg);
+            messages.playSound(p, soundKey);
+        }
+    }
+
+    public void broadcastRestartCancelled(RestartCoordinator.ActiveCountdown previous, String actor) {
+        Component msg = messages.render("restart.countdown-cancelled",
+                Messages.ph("actor", actor == null || actor.isBlank() ? "system" : actor));
+        Bukkit.getConsoleSender().sendMessage(msg);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(msg);
+        }
+    }
+
+    public void broadcastRestartFailed(String actor, String detail) {
+        Component msg = messages.render("restart.scheduled-failed",
+                Messages.ph("reason", log.redact(String.valueOf(detail))));
+        Bukkit.getConsoleSender().sendMessage(msg);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (Perm.NOTIFY.allows(n -> p.hasPermission(n)) || Perm.RESTART.allows(n -> p.hasPermission(n))
+                    || Perm.SCHEDULE.allows(n -> p.hasPermission(n))) {
+                p.sendMessage(msg);
+                messages.playSound(p, "error");
+            }
         }
     }
 
@@ -118,28 +224,38 @@ public final class Notifier {
         return minutes > 0 && System.currentTimeMillis() - s.time() >= minutes * 60_000L;
     }
 
-    private synchronized void markNotified(UUID id, String fp) {
-        load();
-        seen.put(id, new Seen(fp, System.currentTimeMillis()));
-        YamlConfiguration y = new YamlConfiguration();
-        y.options().pathSeparator('/');
-        seen.forEach((u, v) -> {
-            y.set("notified/" + u + "/fingerprint", v.fingerprint());
-            y.set("notified/" + u + "/time", v.time());
-        });
-        String content = y.saveToString();
+    private void markNotified(UUID id, String fp) {
+        final String content;
+        final long seq;
+        synchronized (this) {
+            load();
+            seen.put(id, new Seen(fp, System.currentTimeMillis()));
+            YamlConfiguration y = new YamlConfiguration();
+            y.options().pathSeparator('/');
+            seen.forEach((u, v) -> {
+                y.set("notified/" + u + "/fingerprint", v.fingerprint());
+                y.set("notified/" + u + "/time", v.time());
+            });
+            content = y.saveToString();
+            seq = ++writeSeq;
+        }
         try {
-            plugin.io().submit(() -> writeSafely(content));
+            plugin.io().submit(() -> writeSafely(content, seq));
         } catch (RuntimeException e) {
-            writeSafely(content);
+            writeSafely(content, seq);
         }
     }
 
-    private void writeSafely(String content) {
-        try {
-            AtomicFiles.writeString(file, content);
-        } catch (IOException e) {
-            log.error("notified.yml konnte nicht gespeichert werden", e);
+    private void writeSafely(String content, long seq) {
+        synchronized (writeLock) {
+            synchronized (this) {
+                if (seq < writeSeq) return;
+            }
+            try {
+                AtomicFiles.writeString(file, content);
+            } catch (IOException e) {
+                log.error("notified.yml konnte nicht gespeichert werden", e);
+            }
         }
     }
 

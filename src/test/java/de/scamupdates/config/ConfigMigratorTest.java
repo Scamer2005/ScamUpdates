@@ -101,4 +101,26 @@ class ConfigMigratorTest {
             assertEquals(3, cc.missingSettings().size(), cc.missingSettings().toString());
         }
     }
+
+    @Test
+    void testedVersionsArePreservedAcrossMigrationAndAcceptedFor26x() throws Exception {
+        String defaults = new String(getClass().getResourceAsStream("/config.yml").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String userYaml = """
+                config-version: 1
+                crafty:
+                  enabled: false
+                compat:
+                  tested-versions:
+                    - "1.20.4"
+                    - "26.1.2"
+                    - "26.2"
+                    - "26.3"
+                """;
+        de.scamupdates.logging.ScamLog log = new de.scamupdates.logging.ScamLog(java.util.logging.Logger.getLogger("CfgMigTest"), null);
+        ConfigManager cm = new ConfigManager(null, log);
+        assertTrue(cm.loadFromString(userYaml, defaults).ok());
+        assertEquals(java.util.List.of("1.20.4", "26.1.2", "26.2", "26.3"), cm.testedVersions());
+        assertEquals(de.scamupdates.compat.CompatInfo.Status.TESTED,
+                de.scamupdates.compat.CompatInfo.evaluate("26.3", "26.3.build.264-stable", cm.testedVersions()).status());
+    }
 }

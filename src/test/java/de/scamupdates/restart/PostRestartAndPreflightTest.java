@@ -3,6 +3,7 @@ package de.scamupdates.restart;
 import de.scamupdates.TestJars;
 import de.scamupdates.backup.BackupManager;
 import de.scamupdates.logging.ScamLog;
+import de.scamupdates.queue.UpdateQueueStore;
 import de.scamupdates.update.PostRestartVerifier;
 import de.scamupdates.update.Stager;
 import de.scamupdates.update.TransactionStore;
@@ -98,5 +99,40 @@ class PostRestartAndPreflightTest {
         List<String> problems = svc.preflight(tx.all());
         assertEquals(1, problems.size());
         assertTrue(problems.get(0).contains("Backup"));
+    }
+
+    @Test
+    void postRestartVerifierRemovesOnlyAppliedEntriesFromQueueAndLeavesNotAppliedAndMismatchSafe() throws Exception {
+        Path queueFile = plugins.resolve("ScamUpdates/queue.yml");
+        UpdateQueueStore queue = new UpdateQueueStore(queueFile, log);
+        queue.enqueue("Foo", "1.0", "2.0", "modrinth", "PENDING_RESTART", "Admin");
+        queue.enqueue("KeepWaiting", "1.0", "2.0", "modrinth", "WAITING", "Admin");
+
+        // 1. NOT_APPLIED -> Queue bleibt erhalten
+        stage();
+        List<PostRestartVerifier.Report> notApplied = PostRestartVerifier.verify(tx, plugins, updateDir, log, queue);
+        assertEquals(PostRestartVerifier.Status.NOT_APPLIED, notApplied.get(0).status());
+        assertTrue(queue.contains("Foo"));
+
+        // 2. APPLIED -> Transaktion UND Queue-Eintrag fuer Foo werden bereinigt, unbeteiligte bleiben
+        paperApplies();
+        List<PostRestartVerifier.Report> applied = PostRestartVerifier.verify(tx, plugins, updateDir, log, queue);
+        assertEquals(PostRestartVerifier.Status.APPLIED, applied.get(0).status());
+        assertTrue(tx.all().isEmpty());
+        assertFalse(queue.contains("Foo"));
+        assertTrue(queue.contains("KeepWaiting"));
+        assertFalse(new UpdateQueueStore(queueFile, log).contains("Foo"));
+
+        // 3. MISMATCH -> Queue-Eintrag darf NICHT geloescht werden (erwartet v3, auf Disk liegt noch v2)
+        Path freshV3 = TestJars.plugin(dir.resolve("fresh-v3.jar"), "Foo", "3.0", "v3");
+        Stager.Result r3 = stager.stage("Foo", "2.0", installed, freshV3);
+        tx.put(new TransactionStore.Pending("Foo", TransactionStore.Kind.UPDATE, "2.0", "3.0",
+                "Foo.jar", r3.sha256(), System.currentTimeMillis()));
+        Files.delete(updateDir.resolve("Foo.jar"));
+        queue.enqueue("Foo", "2.0", "3.0", "modrinth", "PENDING_RESTART", "Admin");
+        List<PostRestartVerifier.Report> mismatch = PostRestartVerifier.verify(tx, plugins, updateDir, log, queue);
+        assertEquals(PostRestartVerifier.Status.MISMATCH, mismatch.get(0).status());
+        assertTrue(tx.all().isEmpty());
+        assertTrue(queue.contains("Foo"), "MISMATCH darf keinen Queue-Eintrag als angewendet loeschen");
     }
 }

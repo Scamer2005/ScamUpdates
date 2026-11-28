@@ -48,6 +48,12 @@ public final class ServerVersion implements Comparable<ServerVersion> {
 
     public boolean isNewerThan(String other) { return compareTo(of(other)) > 0; }
 
+    public int major() { return parts[0]; }
+
+    public int minor() { return parts.length > 1 ? parts[1] : 0; }
+
+    public int patch() { return parts.length > 2 ? parts[2] : 0; }
+
     @Override public boolean equals(Object o) { return o instanceof ServerVersion v && compareTo(v) == 0; }
 
     @Override public int hashCode() {
